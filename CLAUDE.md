@@ -1,6 +1,6 @@
 # Working on this repo with Claude Code
 
-This is Henrik (a fork of Frog), a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/VoicePet/`. The pet is a swappable avatar in `web/src/avatars/<name>/`; `web/avatar.config.js` picks which one ships (currently `henrik`, a 2D sprite hockey goalie; `frog` is the original three.js frog). `web/src/main.js` only loads the chosen avatar. 2D image avatars use the shared engine in `web/src/sprite-pet.js`. See `web/src/avatars/README.md`.
+This is HockeyTime (Henrik the goalie; a fork of Frog), a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/HockeyTime/`. The pet is a swappable avatar in `web/src/avatars/<name>/`; `web/avatar.config.js` picks which one ships (currently `henrik`, a 2D sprite hockey goalie; `frog` is the original three.js frog). `web/src/main.js` only loads the chosen avatar. 2D image avatars use the shared engine in `web/src/sprite-pet.js`. See `web/src/avatars/README.md`.
 
 ## If someone asks for a different pet
 
@@ -13,7 +13,7 @@ Add a folder under `web/src/avatars/` (copy `henrik/` for an image sprite, `frog
 - `?bg=1` paints a dark background for previews, `?demo=1` cycles states, `?state=name` forces one, `?avatar=name` picks an avatar, `?glide=1` fakes window motion.
 - Optional: `pet.name` (also selects the brain persona in `Brain.swift` and the voice catchphrase), `pet.motion` (`'walk'` or `'glide'`, read by `Wander.swift`), `pet.setVelocity(x, y)`, `pet.setTalking(on)`.
 
-After editing, run `cd web && npm run capture` and look at `web/shots/*.png` before claiming it looks right. Then `./build.sh` (or `ARCH=amd64 ./build.sh` for Intel) and `open build/VoicePet.app`.
+After editing, run `cd web && npm run capture` and look at `web/shots/*.png` before claiming it looks right. Then `./build.sh` (or `ARCH=amd64 ./build.sh` for Intel) and `open build/HockeyTime.app`.
 
 Design intent: cute, round, soft toon shading with a dark outline, squash-and-stretch on state changes, always something moving (breathing, blinking, gaze). No UI chrome around the pet.
 

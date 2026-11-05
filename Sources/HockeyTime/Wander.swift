@@ -24,13 +24,15 @@ final class Wander {
     var onVelocity: ((Double, Double) -> Void)?
     private let walkSpeed: CGFloat = 34          // points per second
     private let glideSpeed: Double = 120
-    private let dt = 1.0 / 30.0
+    private let dt = 1.0 / 60.0             // 60 Hz window updates: smooth gliding
 
     init(panel: NSPanel) {
         self.panel = panel
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
+        RunLoop.main.add(t, forMode: .common)   // keep gliding while menus are open or the user drags something
+        timer = t
     }
 
     func pause(seconds: Double) {
@@ -97,7 +99,7 @@ final class Wander {
         let cur = panel.frame.origin
         steer(panel, frame: f, origin: cur, wobble: 1.2, edgeStart: 0.7, edgePull: 0.25)
         let dx = cos(heading), dy = sin(heading) * 0.55        // more sideways than up and down
-        let step = walkSpeed / 30.0
+        let step = walkSpeed * CGFloat(dt)
         var nx = cur.x + CGFloat(dx) * step, ny = cur.y + CGFloat(dy) * step
         nx = max(f.minX, min(nx, f.maxX - w)); ny = max(f.minY, min(ny, f.maxY - h))
         panel.setFrameOrigin(NSPoint(x: nx, y: ny))

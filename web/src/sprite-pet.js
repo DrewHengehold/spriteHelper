@@ -1,40 +1,55 @@
-// A generic 2D "sprite" pet: give it one image and it implements the whole `window.pet`
-// contract (states, mic level, gaze, velocity) with procedural animation on a transparent canvas.
+// A generic 2D "sprite" pet: give it one image and it implements the whole `window.pet` contract
+// (states, mic level, gaze, velocity, talking) with procedural, spring-driven animation on a
+// transparent canvas, optionally rendered as chunky pixel art.
 //
 //   import { createSpritePet } from '../../sprite-pet.js'
 //   import image from './my-character.png'
 //   createSpritePet({ name: 'my character', image })
 //
 // Options (all but `image` optional):
-//   name        string   what the pet is called (the brain uses it)
-//   image       url      the sprite; any format the browser can draw (png, svg, webp, gif first frame)
+//   name        string   what the pet is called (the brain and voice lines use it)
+//   image       url      the sprite; any format the browser can draw (png, svg, webp)
 //   facing      1 | -1   which way the art faces: 1 = right, -1 = left
 //   height      0..1     sprite height as a fraction of the canvas
 //   ground      0..1     where the feet touch, as a fraction of the canvas height from the top
 //   motion      'glide' | 'walk'   how the Swift app moves the window around the screen
+//   pixel       number   size of one "pixel" in CSS px for the pixel-art look (0 or 1 = smooth)
 //   trail       bool     ice spray + speed streaks while moving
-//   accent      css color  sparks, rings, text
+//   accent      css color  rings, spinner, text
 //   doneText    string   pops up on the 'done' state
 //   doneSound   'horn' | 'ding'
+//   mouth       { x, y, w }        mouth centre and width, as fractions of the image; opens while talking
+//   eyes        { pts: [{x, y}], r, lid }  eye centres/radius as image fractions, eyelid colour; blinks
+//   stick       { x, y }           stick blade as an image fraction; enables shooting pucks at the screen
+//   shotEvery   [min, max] seconds between puck shots while idle (default [35, 90])
 
 export function createSpritePet(opts) {
   const o = {
-    name: 'pet', facing: 1, height: 0.66, ground: 0.88, motion: 'glide', trail: true,
-    accent: '#d6283a', doneText: 'NICE!', doneSound: 'ding', ...opts,
+    name: 'pet', facing: 1, height: 0.66, ground: 0.88, motion: 'glide', trail: true, pixel: 0,
+    accent: '#1f5fbf', doneText: 'NICE!', doneSound: 'ding', shotEvery: [35, 90], ...opts,
   }
 
-  // ---------- canvas ----------
+  // ---------- canvases ----------
   const params = new URLSearchParams(location.search)
   const VSIZE = parseInt(params.get('size') || '0', 10)
   const VW = parseInt(params.get('w') || '0', 10) || VSIZE, VH = parseInt(params.get('h') || '0', 10) || VSIZE
   const W = VW || 320, H = VH || 320
   if (params.get('bg')) document.body.classList.add('bg')
   if (params.get('white')) document.body.classList.add('white')
+  if (params.has('pixel')) o.pixel = parseFloat(params.get('pixel')) || 0
   const canvas = document.getElementById('c')
   if (VW) { canvas.style.width = W + 'px'; canvas.style.height = H + 'px'; document.body.style.width = W + 'px'; document.body.style.height = H + 'px' }
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
   canvas.width = W * dpr; canvas.height = H * dpr
-  const ctx = canvas.getContext('2d')   // transparent by default
+  const out = canvas.getContext('2d')     // transparent by default
+
+  // Everything is drawn in CSS-px coordinates into a buffer whose resolution is 1 / pixel of the
+  // canvas, then scaled up with nearest-neighbour sampling: that is the pixel-art look.
+  const px = o.pixel > 1 ? o.pixel : 1 / dpr
+  const LW = Math.ceil(W / px), LH = Math.ceil(H / px)
+  const makeBuf = () => { const c = document.createElement('canvas'); c.width = LW; c.height = LH; const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = false; return [c, x] }
+  const [scene, ctx] = makeBuf()          // the whole frame
+  const [spriteBuf, sctx] = makeBuf()     // just the character, so its edges can be made crisp
 
   const img = new Image()
   let ready = false
@@ -45,20 +60,33 @@ export function createSpritePet(opts) {
   // ---------- sounds ----------
   const sfx = {
     enabled: true, ac: null,
+    ctx() { this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)(); return this.ac },
     tone({ from, to = from, dur = 0.12, vol = 0.18, type = 'sine', delay = 0 }) {
       if (!this.enabled) return
       try {
-        this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)()
-        const t0 = this.ac.currentTime + delay
-        const osc = this.ac.createOscillator(), g = this.ac.createGain()
+        const ac = this.ctx(), t0 = ac.currentTime + delay
+        const osc = ac.createOscillator(), g = ac.createGain()
         osc.type = type
         osc.frequency.setValueAtTime(from, t0)
         osc.frequency.exponentialRampToValueAtTime(Math.max(1, to), t0 + dur)
         g.gain.setValueAtTime(0.0001, t0)
         g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01)
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
-        osc.connect(g).connect(this.ac.destination)
+        osc.connect(g).connect(ac.destination)
         osc.start(t0); osc.stop(t0 + dur + 0.02)
+      } catch { /* no audio */ }
+    },
+    noise({ dur = 0.15, vol = 0.2, delay = 0, hp = 800 }) {
+      if (!this.enabled) return
+      try {
+        const ac = this.ctx(), t0 = ac.currentTime + delay
+        const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * dur), ac.sampleRate)
+        const d = buf.getChannelData(0)
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3)
+        const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain()
+        src.buffer = buf; f.type = 'highpass'; f.frequency.value = hp; g.gain.value = vol
+        src.connect(f).connect(g).connect(ac.destination)
+        src.start(t0)
       } catch { /* no audio */ }
     },
     play(n) {
@@ -68,36 +96,61 @@ export function createSpritePet(opts) {
         case 'huh':  this.tone({ from: 300, to: 420, dur: 0.12 }); this.tone({ from: 420, to: 260, dur: 0.16, delay: 0.13 }); break
         case 'ding': this.tone({ from: 1320, dur: 0.25, vol: 0.12 }); this.tone({ from: 1760, dur: 0.3, vol: 0.1, delay: 0.08 }); break
         case 'horn': this.tone({ from: 155, to: 150, dur: 0.9, vol: 0.12, type: 'sawtooth' }); this.tone({ from: 233, to: 228, dur: 0.9, vol: 0.08, type: 'sawtooth' }); break
-        case 'swish': this.tone({ from: 1800, to: 900, dur: 0.12, vol: 0.05, type: 'triangle' }); break
+        case 'swish': this.noise({ dur: 0.25, vol: 0.05, hp: 3000 }); break
         case 'blip': this.tone({ from: 880, dur: 0.06, vol: 0.08 }); break
+        case 'slap': this.noise({ dur: 0.08, vol: 0.35, hp: 400 }); this.tone({ from: 180, to: 90, dur: 0.08, vol: 0.15, type: 'square' }); break
+        case 'crack': this.noise({ dur: 0.35, vol: 0.3, hp: 1500 }); this.tone({ from: 2400, to: 900, dur: 0.12, vol: 0.05, type: 'triangle' }); break
       }
     },
   }
 
+  // ---------- springs: everything that moves eases with a damped spring, so nothing snaps ----------
+  const spring = (x, k = 120, d = 2 * Math.sqrt(k)) => ({ x, v: 0, t: x, k, d })
+  function step(s, dt) {
+    // semi-implicit Euler in small substeps stays stable even when a frame is slow
+    const n = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / n
+    for (let i = 0; i < n; i++) { s.v += (s.k * (s.t - s.x) - s.d * s.v) * h; s.x += s.v * h }
+    return s.x
+  }
+  const sp = {
+    rot: spring(0, 90, 13),      // body lean
+    bob: spring(0, 160, 14),     // vertical offset (jumps use impulses on .v)
+    sx: spring(1, 200, 16),      // squash and stretch
+    sy: spring(1, 200, 16),
+    face: spring(o.facing, 70, 15),   // facing; passes through 0 when turning
+    vx: spring(0, 30, 11), vy: spring(0, 30, 11),   // smoothed window velocity
+    lookX: spring(0, 40, 12), lookY: spring(0, 40, 12),
+    level: spring(0, 400, 40),
+    mouth: spring(0, 500, 30),
+    slide: spring(0, 60, 15), slideY: spring(0, 60, 15),
+  }
+
   // ---------- state ----------
   let state = 'idle', stateT = 0
-  let level = 0, levelSmooth = 0
-  let talking = false
-  let sq = 0, sqV = 0                       // squash spring
-  let face = o.facing, faceT = o.facing     // smoothed facing (-1..1, passes through 0 when turning)
-  const look = { x: 0, y: 0, tx: 0, ty: 0 }
-  const vel = { x: 0, y: 0, tx: 0, ty: 0 }
-  const slide = { x: 0, y: 0, tx: 0, ty: 0, speed: 3 }
-  let calm = 0
-  let stride = 0                             // skating stride phase
-  let drift = 0                              // little in-place glide when idle
-  let doneT = 99
-  const sparks = []                          // {x,y,vx,vy,life,color,size}
-  const spray = []                           // ice spray behind the skates
+  let level = 0, talking = false, calm = 0
+  let stride = 0, drift = 0, doneT = 99
+  let blinkIn = 2 + Math.random() * 3, blink = 0
+  let syllableIn = 0
+  let nextShot = rand(o.shotEvery[0] * 0.4, o.shotEvery[1] * 0.6)   // the first one comes sooner
+  let shot = null                                                    // { phase, t, from, to, crack }
+  let shake = 0
+  const sparks = [], spray = [], cracks = []
 
-  function impulse(v) { sqV += v * (1 - 0.5 * calm) }
+  function rand(a, b) { return a + Math.random() * (b - a) }
+  function impulse(v) { sp.bob.v -= v * 22 * (1 - 0.5 * calm); sp.sy.v += v * 0.35; sp.sx.v -= v * 0.2 }
 
   function burst() {
-    const colors = [o.accent, '#ffffff', '#1f5fbf', '#ffd34d']
+    const colors = [o.accent, '#ffffff', '#ffd34d', '#7fb2ff']
     for (let i = 0; i < 40; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 90 + Math.random() * 170
-      sparks.push({ x: W / 2, y: H * 0.45, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120, life: 1, color: colors[i % colors.length], size: 3 + Math.random() * 3 })
+      const a = Math.random() * Math.PI * 2, s = 90 + Math.random() * 170
+      sparks.push({ x: W / 2, y: H * 0.45, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, life: 1, color: colors[i % colors.length], size: 3 + Math.random() * 3 })
     }
+  }
+
+  function shoot() {
+    if (shot || !o.stick) return false
+    shot = { phase: 'windup', t: 0 }
+    return true
   }
 
   window.pet = {
@@ -107,125 +160,179 @@ export function createSpritePet(opts) {
       if (s === state) return
       const prev = state
       state = s; stateT = 0
-      if (s === 'listening') { impulse(-4); sfx.play('pop') }
+      if (s === 'listening') { impulse(-3); sfx.play('pop') }
       if (s === 'thinking') sfx.play('blip')
       if (s === 'done') { impulse(9); burst(); doneT = 0; sfx.play(o.doneSound) }
       if (s === 'confused') { impulse(3); sfx.play('huh') }
-      if (s === 'noting') impulse(-3)
+      if (s === 'noting') impulse(-2)
       if (s === 'idle') { impulse(2); if (prev === 'loading' || prev === 'sleeping') sfx.play('pop') }
+      if (s !== 'idle' && shot && shot.phase === 'windup') shot = null   // never shoot over real work
     },
     setLevel(v) { level = Math.max(0, Math.min(1, +v || 0)) },
-    lookAt(x, y) { look.tx = Math.max(-1, Math.min(1, +x || 0)); look.ty = Math.max(-1, Math.min(1, +y || 0)) },
+    lookAt(x, y) { sp.lookX.t = Math.max(-1, Math.min(1, +x || 0)); sp.lookY.t = Math.max(-1, Math.min(1, +y || 0)) },
     setVelocity(x, y) {
-      const was = Math.hypot(vel.tx, vel.ty)
-      vel.tx = +x || 0; vel.ty = +y || 0
-      if (was < 0.1 && Math.hypot(vel.tx, vel.ty) > 0.3) sfx.play('swish')
+      const was = Math.hypot(sp.vx.t, sp.vy.t)
+      sp.vx.t = +x || 0; sp.vy.t = +y || 0
+      if (was < 0.1 && Math.hypot(sp.vx.t, sp.vy.t) > 0.3) sfx.play('swish')
     },
     setSounds(on) { sfx.enabled = !!on },
     setTalking(on) { talking = !!on },
     setCalm(c) { calm = Math.max(0, Math.min(1, +c || 0)) },
     setFlySpeed() {},
-    setOffset(x, y, secs) { slide.tx = x; slide.ty = y; slide.speed = secs ? 1 / Math.max(0.05, secs) : 3 },
+    setOffset(x, y, secs) { sp.slide.t = x; sp.slideY.t = y; sp.slide.k = sp.slideY.k = secs ? 12 / Math.max(0.05, secs) : 60 },
     setZoom() {}, zoomTo() {},
     ui(html) { let u = document.getElementById('ui'); if (!u) { u = document.createElement('div'); u.id = 'ui'; document.body.appendChild(u) } u.innerHTML = html || '' },
     setCaption(text) { let c = document.getElementById('cap'); if (!c) { c = document.createElement('div'); c.id = 'cap'; document.body.appendChild(c) } c.textContent = text || ''; c.style.opacity = text ? 1 : 0 },
     boop() { impulse(6); sfx.play('boop') },
+    shoot,
     state: () => state,
   }
 
   // ---------- drawing helpers ----------
-  function ellipse(x, y, rx, ry, fill, alpha = 1) {
-    ctx.globalAlpha = alpha; ctx.fillStyle = fill
-    ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, Math.PI * 2); ctx.fill()
-    ctx.globalAlpha = 1
+  function ellipse(c, x, y, rx, ry, fill, alpha = 1) {
+    c.globalAlpha = alpha; c.fillStyle = fill
+    c.beginPath(); c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, Math.PI * 2); c.fill()
+    c.globalAlpha = 1
   }
   function label(txt, x, y, size, fill, alpha = 1, rot = 0) {
     ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(rot)
     ctx.font = `900 ${size}px -apple-system, "SF Pro Rounded", "Arial Rounded MT Bold", Arial, sans-serif`
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
-    ctx.lineWidth = size * 0.18; ctx.strokeStyle = '#1b2233'; ctx.strokeText(txt, 0, 0)
+    ctx.lineWidth = Math.max(3, size * 0.2); ctx.strokeStyle = '#0d1630'; ctx.strokeText(txt, 0, 0)
     ctx.fillStyle = fill; ctx.fillText(txt, 0, 0)
     ctx.restore()
+  }
+  // crisp pixel edges: no half-transparent fringe around the character
+  function hardenAlpha(c) {
+    if (px <= 1) return
+    const d = c.getImageData(0, 0, LW, LH), a = d.data
+    for (let i = 3; i < a.length; i += 4) a[i] = a[i] > 110 ? 255 : 0
+    c.putImageData(d, 0, 0)
+  }
+  function puck(c, x, y, r, tilt) {
+    ellipse(c, x, y + r * 0.18, r, r * tilt, '#000000')
+    ellipse(c, x, y, r, r * tilt, '#262a33')
+    ellipse(c, x - r * 0.25, y - r * tilt * 0.3, r * 0.45, r * tilt * 0.3, '#4a5160')
   }
 
   // ---------- loop ----------
   let last = performance.now(), t = 0
   function frame(now) {
     requestAnimationFrame(frame)
-    const dt = Math.min(0.05, (now - last) / 1000); last = now
+    const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000)); last = now
     t += dt; stateT += dt; doneT += dt
 
-    // springs and smoothing
-    const k = 160 * (1 - 0.5 * calm), damp = 12
-    sqV += (-k * sq - damp * sqV) * dt; sq += sqV * dt
-    levelSmooth += (level - levelSmooth) * Math.min(1, dt * 14)
-    look.x += (look.tx - look.x) * Math.min(1, dt * 5); look.y += (look.ty - look.y) * Math.min(1, dt * 5)
-    vel.x += (vel.tx - vel.x) * Math.min(1, dt * 4); vel.y += (vel.ty - vel.y) * Math.min(1, dt * 4)
-    slide.x += (slide.tx - slide.x) * Math.min(1, dt * slide.speed); slide.y += (slide.ty - slide.y) * Math.min(1, dt * slide.speed)
-    const speed = Math.min(1, Math.hypot(vel.x, vel.y))
-    const moving = speed > 0.08
+    // ----- inputs -----
+    sp.level.t = level; step(sp.level, dt)
+    step(sp.vx, dt); step(sp.vy, dt); step(sp.lookX, dt); step(sp.lookY, dt)
+    step(sp.slide, dt); step(sp.slideY, dt)
+    const vx = sp.vx.x, vy = sp.vy.x, lvl = sp.level.x
+    const speed = Math.min(1, Math.hypot(vx, vy))
+    const moving = speed > 0.06
 
-    // facing: follow travel direction, else the cursor; turning squeezes through 0 like a real turn
-    if (Math.abs(vel.x) > 0.15) faceT = Math.sign(vel.x)
-    else if (!moving && Math.abs(look.tx) > 0.35 && state !== 'sleeping') faceT = Math.sign(look.tx)
-    face += (faceT - face) * Math.min(1, dt * 9)
+    // ----- facing: travel direction, else the cursor -----
+    if (Math.abs(sp.vx.t) > 0.15) sp.face.t = Math.sign(sp.vx.t)
+    else if (!moving && Math.abs(sp.lookX.t) > 0.35 && state !== 'sleeping' && !shot) sp.face.t = Math.sign(sp.lookX.t)
+    const face = step(sp.face, dt)
+    const turning = 1 - Math.min(1, Math.abs(face))            // 1 mid-turn
 
-    // skating stride and idle drift
-    stride += dt * (moving ? 2.2 + speed * 2.5 : 0)
-    const stridePush = moving ? Math.sin(stride * Math.PI) : 0
-    drift += dt * (state === 'idle' && !moving ? 0.45 : 0)
-    const driftX = state === 'idle' && !moving ? Math.sin(drift) * 10 : 0
+    // ----- blink, mouth -----
+    blinkIn -= dt
+    if (blinkIn <= 0) { blink = 1; blinkIn = Math.random() < 0.2 ? 0.25 : rand(2.2, 5.5) }   // sometimes a double blink
+    blink = Math.max(0, blink - dt * 7)
+    syllableIn -= dt
+    if (talking && syllableIn <= 0) { sp.mouth.t = Math.random() < 0.15 ? 0.1 : rand(0.45, 1); syllableIn = rand(0.07, 0.16) }
+    if (!talking) sp.mouth.t = 0
+    const mouth = Math.max(0, step(sp.mouth, dt))
 
-    // per-state pose
-    let bob = 0, rot = 0, sx = 1, sy = 1, alpha = 1
-    const breathe = Math.sin(t * (state === 'sleeping' ? 1.4 : 2.4)) * (state === 'sleeping' ? 0.03 : 0.015)
-    sy += breathe; sx -= breathe * 0.5
+    // ----- the puck shot -----
+    nextShot -= dt
+    if (nextShot <= 0) {
+      nextShot = rand(o.shotEvery[0], o.shotEvery[1])
+      if (state === 'idle' && !talking) shoot()
+    }
+    let windup = 0
+    if (shot) {
+      shot.t += dt
+      if (shot.phase === 'windup') {
+        windup = Math.min(1, shot.t / 0.45)
+        if (shot.t >= 0.45) {
+          shot.phase = 'flight'; shot.t = 0; sfx.play('slap'); impulse(-4)
+          shot.to = { x: W * rand(0.3, 0.7), y: H * rand(0.25, 0.55) }
+        }
+      } else if (shot.phase === 'flight' && shot.t >= 0.42) {
+        shot.phase = 'hit'; shot.t = 0; shake = 1; sfx.play('crack')
+        cracks.length = 0
+        const n = 9 + Math.floor(Math.random() * 4)
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + rand(-0.2, 0.2), pts = [[0, 0]]
+          let r = 0, ang = a
+          while (r < rand(70, 140)) { r += rand(12, 24); ang += rand(-0.25, 0.25); pts.push([Math.cos(ang) * r, Math.sin(ang) * r]) }
+          cracks.push(pts)
+        }
+      } else if (shot.phase === 'hit' && shot.t >= 1.6) {
+        shot = null
+      }
+    }
+    shake = Math.max(0, shake - dt * 3)
+
+    // ----- pose targets (the springs smooth them) -----
+    stride += dt * (moving ? 2 + speed * 2.4 : 0)
+    const push = moving ? Math.sin(stride * Math.PI) : 0
+    drift += dt * (state === 'idle' && !moving && !shot ? 0.4 : 0)
+    const driftX = Math.sin(drift) * 10 * (state === 'idle' && !moving ? 1 : 0)
+    const breathe = Math.sin(t * (state === 'sleeping' ? 1.3 : 2.3)) * (state === 'sleeping' ? 0.03 : 0.014)
+    let rot = 0, bob = 0, sx = 1 - breathe * 0.5, sy = 1 + breathe, alpha = 1
     switch (state) {
-      case 'listening': sy += levelSmooth * 0.12; sx -= levelSmooth * 0.05; bob -= levelSmooth * 6; break
-      case 'thinking': rot += Math.sin(t * 3) * 0.04; break
-      case 'done': bob -= Math.max(0, Math.sin(Math.min(1, doneT / 0.6) * Math.PI)) * 34; rot += Math.sin(doneT * 14) * 0.08 * Math.max(0, 1 - doneT); if (stateT > 1.6) window.pet.setState('idle'); break
-      case 'confused': rot += Math.sin(t * 4) * 0.1; if (stateT > 2.2) window.pet.setState('idle'); break
-      case 'sleeping': rot += 0.12 * face; sy -= 0.04; break
-      case 'loading': alpha = 0.6 + Math.sin(t * 3) * 0.2; break
+      case 'listening': sy += lvl * 0.12; sx -= lvl * 0.05; bob -= lvl * 6; break
+      case 'thinking': rot += Math.sin(t * 2.6) * 0.05; break
+      case 'done': rot += Math.sin(doneT * 12) * 0.07 * Math.max(0, 1 - doneT); if (stateT > 1.6) window.pet.setState('idle'); break
+      case 'confused': rot += Math.sin(t * 3.5) * 0.1; if (stateT > 2.2) window.pet.setState('idle'); break
+      case 'sleeping': rot += 0.12 * Math.sign(face || 1); sy -= 0.04; break
+      case 'loading': alpha = 0.65 + Math.sin(t * 3) * 0.2; break
     }
-    if (talking) { bob += Math.abs(Math.sin(t * 16)) * -3; sy += Math.abs(Math.sin(t * 16)) * 0.02 }
-    // gliding: lean into the direction of travel, rock with each stride, crouch a little
-    if (moving) {
-      rot += vel.x * 0.16 + stridePush * 0.05 * speed
-      sy -= 0.04 * speed; sx += 0.02 * speed
-      bob += Math.abs(stridePush) * 3 * speed
+    if (talking) { bob -= mouth * 2.5; sy += mouth * 0.015 }
+    if (moving) {                                           // skating: lean into travel, crouch, rock with each push
+      rot += vx * 0.16 + push * 0.045 * speed
+      sy -= 0.05 * speed; sx += 0.025 * speed
+      bob += Math.abs(push) * 3 * speed
     } else if (state === 'idle') {
-      rot += look.y * -0.04 + Math.cos(drift) * 0.03
+      rot += sp.lookY.x * -0.04 + Math.cos(drift) * 0.025
     }
-    sy *= 1 - sq * 0.06; sx *= 1 + sq * 0.05
+    if (shot && shot.phase === 'windup') rot -= windup * 0.22 * Math.sign(face || 1)          // lean back, stick up
+    if (shot && shot.phase === 'flight' && shot.t < 0.15) rot += 0.12 * Math.sign(face || 1)  // follow-through
+    bob -= turning * 8                                       // a little hop as he turns around
+    sp.rot.t = rot; sp.bob.t = bob; sp.sx.t = sx; sp.sy.t = sy
+    const R = step(sp.rot, dt), B = step(sp.bob, dt), SX = step(sp.sx, dt), SY = step(sp.sy, dt)
 
-    // ---------- draw ----------
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, W, H)
-    const gx = W / 2 + driftX + slide.x * W * 0.25, gy = H * o.ground - slide.y * H * 0.25
+    // ----- draw the scene into the low-res buffer -----
+    const jx = shake * rand(-6, 6), jy = shake * rand(-6, 6)
+    ctx.setTransform(1 / px, 0, 0, 1 / px, jx / px, jy / px)
+    ctx.clearRect(-20, -20, W + 40, H + 40)
+    const gx = W / 2 + driftX + sp.slide.x * W * 0.25, gy = H * o.ground - sp.slideY.x * H * 0.25
     const sh = H * o.height, sw = ready ? sh * img.width / img.height : sh
 
-    // ice: shadow + glint under the skates
-    ellipse(gx, gy + 2, sw * 0.38 * (1 + bob / 120), 9 * (1 + bob / 120), '#0b1a33', 0.22)
-    ellipse(gx - sw * 0.12, gy, sw * 0.12, 2.2, '#ffffff', 0.35 + 0.2 * Math.sin(t * 2))
+    // ice: shadow and a glint under the skates
+    const lift = Math.max(0, -B) / 60
+    ellipse(ctx, gx, gy + 2, sw * 0.4 * (1 - lift * 0.4), 9 * (1 - lift * 0.4), '#0b1a33', 0.25 * (1 - lift * 0.5))
+    ellipse(ctx, gx - sw * 0.12, gy, sw * 0.12, 2.2, '#ffffff', 0.35 + 0.2 * Math.sin(t * 2))
 
     // spray and speed streaks behind the skates
+    const back = -(Math.sign(vx) || Math.sign(face) || 1)
     if (o.trail && moving && Math.random() < speed * 1.6) {
-      const back = -Math.sign(vel.x || face) || -1
-      spray.push({ x: gx + back * sw * 0.18, y: gy - 3, vx: back * (40 + Math.random() * 80), vy: -30 - Math.random() * 60, life: 1 })
+      spray.push({ x: gx + back * sw * 0.18, y: gy - 3, vx: back * rand(40, 120), vy: -rand(30, 90), life: 1 })
     }
     for (let i = spray.length - 1; i >= 0; i--) {
       const p = spray[i]
       p.life -= dt * 2.2; p.vy += 220 * dt; p.x += p.vx * dt; p.y = Math.min(gy, p.y + p.vy * dt)
       if (p.life <= 0) { spray.splice(i, 1); continue }
-      ellipse(p.x, p.y, 2.4 * p.life + 0.6, 2.4 * p.life + 0.6, '#e8f6ff', p.life * 0.9)
+      ellipse(ctx, p.x, p.y, 2.4 * p.life + 0.8, 2.4 * p.life + 0.8, '#e8f6ff', Math.min(1, p.life * 1.2))
     }
     if (o.trail && speed > 0.25) {
-      const back = -Math.sign(vel.x || face) || -1
-      ctx.strokeStyle = '#ffffff'; ctx.lineCap = 'round'
+      ctx.strokeStyle = '#ffffff'; ctx.lineCap = 'round'; ctx.lineWidth = 3
       for (let i = 0; i < 3; i++) {
         const y = gy - sh * (0.25 + i * 0.2), len = 26 + 18 * speed + Math.sin(t * 9 + i) * 6
-        ctx.globalAlpha = 0.45 * speed; ctx.lineWidth = 3
+        ctx.globalAlpha = 0.5 * speed
         ctx.beginPath(); ctx.moveTo(gx + back * sw * 0.42, y); ctx.lineTo(gx + back * (sw * 0.42 + len), y); ctx.stroke()
       }
       ctx.globalAlpha = 1
@@ -235,37 +342,64 @@ export function createSpritePet(opts) {
     if (state === 'listening') {
       for (let i = 0; i < 3; i++) {
         const ph = (t * 0.9 + i / 3) % 1
-        ctx.globalAlpha = (1 - ph) * (0.25 + levelSmooth * 0.6)
+        ctx.globalAlpha = (1 - ph) * (0.3 + lvl * 0.6)
         ctx.strokeStyle = o.accent; ctx.lineWidth = 3
         ctx.beginPath(); ctx.ellipse(gx, gy - sh * 0.5, sw * 0.45 + ph * 40, sh * 0.5 + ph * 40, 0, 0, Math.PI * 2); ctx.stroke()
       }
       ctx.globalAlpha = 1
     }
 
-    // the sprite itself, anchored at the feet
+    // the character: drawn into its own buffer (with eyelids and mouth), edges hardened, then composited
+    const flip = Math.abs(face) < 0.06 ? 0.06 * (Math.sign(face) || 1) : face
+    const toScene = (u, v) => {   // image-fraction point -> scene px, for effects attached to the sprite
+      const lx = (u - 0.5) * sw * flip * o.facing * SX, ly = (v - 1) * sh * SY
+      return { x: gx + lx * Math.cos(R) - ly * Math.sin(R), y: gy + B + lx * Math.sin(R) + ly * Math.cos(R) }
+    }
     if (ready) {
-      ctx.save()
-      ctx.globalAlpha = alpha
-      ctx.translate(gx, gy + bob)
-      ctx.rotate(rot)
-      const flip = face * o.facing
-      ctx.scale(sx * (Math.abs(flip) < 0.08 ? 0.08 * Math.sign(flip || 1) : flip), sy)
-      ctx.drawImage(img, -sw / 2, -sh, sw, sh)
-      ctx.restore()
+      sctx.setTransform(1 / px, 0, 0, 1 / px, 0, 0)
+      sctx.clearRect(0, 0, W, H)
+      sctx.save()
+      sctx.translate(gx, gy + B)
+      sctx.rotate(R)
+      sctx.scale(SX * flip * o.facing, SY)
+      sctx.translate(-sw / 2, -sh)
+      sctx.drawImage(img, 0, 0, sw, sh)
+      const ix = u => u * sw, iy = v => v * sh
+      if (o.eyes && (blink > 0 || state === 'sleeping')) {          // eyelids
+        const shut = state === 'sleeping' ? 1 : Math.sin(Math.min(1, blink) * Math.PI)
+        for (const e of o.eyes.pts) {
+          const r = o.eyes.r * sw
+          sctx.fillStyle = o.eyes.lid
+          sctx.fillRect(ix(e.x) - r * 1.3, iy(e.y) - r * 1.35, r * 2.6, r * 2.7 * shut)
+          if (shut > 0.6) { sctx.fillStyle = '#17203a'; sctx.fillRect(ix(e.x) - r * 1.1, iy(e.y) + r * 0.2, r * 2.2, Math.max(1.5, r * 0.35)) }
+        }
+      }
+      if (o.mouth && mouth > 0.04) {                                  // open mouth while talking
+        const m = o.mouth, mw = m.w * sw
+        const h = mw * 0.75 * mouth, w = mw * (0.7 + 0.3 * mouth)
+        ellipse(sctx, ix(m.x), iy(m.y) + h * 0.25, w / 2 + 1.5, h / 2 + 1.5, '#17203a')
+        ellipse(sctx, ix(m.x), iy(m.y) + h * 0.25, w / 2, h / 2, '#5a1620')
+        if (mouth > 0.35) ellipse(sctx, ix(m.x), iy(m.y) + h * 0.5, w * 0.28, h * 0.18, '#e0606e')   // tongue
+        sctx.fillStyle = '#ffffff'; sctx.fillRect(ix(m.x) - w * 0.3, iy(m.y) + h * 0.25 - h / 2, w * 0.6, Math.max(1, h * 0.16))   // teeth
+      }
+      sctx.restore()
+      hardenAlpha(sctx)
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, jx / px, jy / px); ctx.globalAlpha = alpha; ctx.drawImage(spriteBuf, 0, 0); ctx.restore()
     }
 
     // overhead effects
-    const headY = gy - sh * 1.02 + bob
+    const headY = gy - sh * 1.02 + B
     if (state === 'thinking') {
       for (let i = 0; i < 3; i++) {
         const up = Math.max(0, Math.sin(t * 6 - i * 0.7)) * 7
-        ellipse(gx - 16 + i * 16, headY - 6 - up, 5.5, 5.5, '#ffffff', 0.95)
+        ellipse(ctx, gx - 16 + i * 16, headY - 6 - up, 5.5, 5.5, '#ffffff', 0.95)
       }
-      // a puck being juggled
-      const pj = Math.abs(Math.sin(t * 4))
-      ellipse(gx + face * sw * 0.36, gy - sh * 0.2 - pj * 34, 9, 4, '#111111', 1)
+      if (o.stick) {   // juggles a puck on the blade
+        const b = toScene(o.stick.x, o.stick.y), pj = Math.abs(Math.sin(t * 4))
+        puck(ctx, b.x, b.y - 8 - pj * 34, 8, 0.45)
+      }
     }
-    if (state === 'confused') label('?', gx + face * sw * 0.32, headY + Math.sin(t * 5) * 3, 38, '#ffd34d', Math.min(1, stateT * 4), Math.sin(t * 4) * 0.2)
+    if (state === 'confused') label('?', gx + Math.sign(face || 1) * sw * 0.34, headY + Math.sin(t * 5) * 3, 38, '#ffd34d', Math.min(1, stateT * 4), Math.sin(t * 4) * 0.2)
     if (state === 'sleeping') {
       for (let i = 0; i < 3; i++) {
         const ph = (t * 0.45 + i / 3) % 1
@@ -273,16 +407,48 @@ export function createSpritePet(opts) {
       }
     }
     if (state === 'noting') {
-      ellipse(gx + sw * 0.42, headY + 14, 7, 7, '#ff3b4f', 0.55 + 0.45 * Math.sin(t * 4))
-      label('REC', gx + sw * 0.42, headY + 32, 11, '#ffffff', 0.9)
+      ellipse(ctx, gx + sw * 0.42, headY + 14, 7, 7, '#ff3b4f', 0.55 + 0.45 * Math.sin(t * 4))
+      label('REC', gx + sw * 0.42, headY + 32, 12, '#ffffff', 1)
     }
     if (state === 'loading') {
       ctx.strokeStyle = o.accent; ctx.lineWidth = 4; ctx.lineCap = 'round'
       ctx.beginPath(); ctx.arc(gx, headY - 4, 12, t * 5, t * 5 + Math.PI * 1.3); ctx.stroke()
     }
     if (doneT < 1.4) {
-      const s = Math.min(1, doneT * 5)
-      label(o.doneText, W / 2, H * 0.14 - doneT * 10, 30 + 8 * Math.sin(Math.min(1, doneT * 3) * Math.PI), o.accent, Math.min(1, (1.4 - doneT) * 3) * s)
+      const pop = Math.min(1, doneT * 5)
+      label(o.doneText, W / 2, H * 0.12 - doneT * 10, 30 + 8 * Math.sin(Math.min(1, doneT * 3) * Math.PI), o.accent, Math.min(1, (1.4 - doneT) * 3) * pop)
+    }
+
+    // the puck: from the blade, straight at you, then the "glass" cracks
+    if (shot && o.stick && shot.phase !== 'windup') {
+      if (shot.phase === 'flight') {
+        const k = Math.min(1, shot.t / 0.42), e = k * k * k          // accelerates toward the viewer
+        const b = toScene(o.stick.x, o.stick.y)
+        const x = b.x + (shot.to.x - b.x) * e, y = b.y - 6 + (shot.to.y - b.y) * e - Math.sin(k * Math.PI) * 30
+        const r = 7 + e * 70, tilt = 0.45 + e * 0.5
+        ctx.globalAlpha = 0.35; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(2, r * 0.25)
+        ctx.beginPath(); ctx.moveTo(b.x, b.y - 6); ctx.lineTo(x, y); ctx.stroke(); ctx.globalAlpha = 1
+        puck(ctx, x, y, r, tilt)
+      } else if (shot.phase === 'hit') {
+        const fade = Math.max(0, 1 - Math.max(0, shot.t - 0.9) / 0.7)
+        const { x, y } = shot.to
+        ctx.save(); ctx.translate(x, y)
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+        for (const pass of [['#0d1630', 5], ['#ffffff', 2.5]]) {
+          ctx.strokeStyle = pass[0]; ctx.lineWidth = pass[1]; ctx.globalAlpha = fade * (pass[0] === '#ffffff' ? 1 : 0.6)
+          for (const pts of cracks) {
+            const grow = Math.min(1, shot.t * 8)
+            ctx.beginPath(); ctx.moveTo(0, 0)
+            for (let i = 1; i < pts.length * grow; i++) ctx.lineTo(pts[i][0], pts[i][1])
+            ctx.stroke()
+          }
+          ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.stroke()
+        }
+        ctx.restore(); ctx.globalAlpha = 1
+        // the puck bounces off the glass and drops away
+        const k = Math.min(1, shot.t / 0.6)
+        if (k < 1) puck(ctx, x + k * 40 * -back, y + k * k * 220, 77 * (1 - k * 0.8), 0.95 - k * 0.4)
+      }
     }
 
     // confetti
@@ -294,6 +460,12 @@ export function createSpritePet(opts) {
       ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
     }
     ctx.globalAlpha = 1
+
+    // ----- upscale to the real canvas -----
+    out.setTransform(1, 0, 0, 1, 0, 0)
+    out.clearRect(0, 0, canvas.width, canvas.height)
+    out.imageSmoothingEnabled = px < 1   // smooth mode keeps full resolution; pixel mode stays blocky
+    out.drawImage(scene, 0, 0, LW * px * dpr, LH * px * dpr)
   }
   requestAnimationFrame(frame)
 
@@ -308,6 +480,8 @@ export function createSpritePet(opts) {
   if (params.get('glide')) {   // ?glide=1 fakes the Swift wander so you can preview the skating
     setInterval(() => { const a = performance.now() / 2500; window.pet.setVelocity(Math.cos(a), Math.sin(a * 0.7) * 0.5) }, 33)
   }
+  if (params.get('talk')) window.pet.setTalking(true)          // ?talk=1 previews the mouth
+  if (params.get('shoot')) setTimeout(shoot, 300)               // ?shoot=1 fires a puck right away
   const forced = params.get('state')
   if (forced) { window.pet.setState(forced); if (forced === 'listening') window.pet.setLevel(0.7) }
 }

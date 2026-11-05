@@ -12,7 +12,7 @@ import config from '../avatar.config.js'
 
 const webDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const avatarsDir = path.join(webDir, 'src/avatars')
-const swiftDir = path.resolve(webDir, '../Sources/VoicePet')
+const swiftDir = path.resolve(webDir, '../Sources/HockeyTime')
 const avatars = readdirSync(avatarsDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)
 const source = name => readFileSync(path.join(avatarsDir, name, 'index.js'), 'utf8')
 const STATES = ['idle', 'listening', 'thinking', 'done', 'noting', 'confused', 'loading', 'sleeping']
@@ -86,6 +86,22 @@ test('every avatar installs the window.pet contract in a browser', { timeout: 12
       if (name === 'henrik') {
         assert.equal(result.name, 'henrik')
         assert.equal(result.motion, 'glide')
+        // talking, a full puck shot (wind-up, flight, cracked glass) and pixel rendering run without errors
+        const extras = await page.evaluate(async () => {
+          window.pet.setState('idle')
+          window.pet.setTalking(true)
+          await new Promise(r => setTimeout(r, 300))
+          window.pet.setTalking(false)
+          const fired = window.pet.shoot()
+          const again = window.pet.shoot()        // one shot at a time
+          await new Promise(r => setTimeout(r, 2800))
+          const c = document.getElementById('c')
+          return { fired, again, drawn: c.width > 0 && c.toDataURL().length > 2000 }
+        })
+        assert.deepEqual(errors, [], 'henrik extras: no page errors')
+        assert.equal(extras.fired, true, 'pet.shoot() starts a shot')
+        assert.equal(extras.again, false, 'a second shot waits for the first')
+        assert.ok(extras.drawn, 'the canvas has content')
       }
     }
   } finally {

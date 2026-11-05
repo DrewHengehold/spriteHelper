@@ -6,11 +6,14 @@ import SwiftUI
 
 // MARK: - palette
 extension Color {
-    static let petBG = Color(red: 1.00, green: 0.953, blue: 0.973)
-    static let petAccent = Color(red: 1.00, green: 0.498, blue: 0.690)
-    static let petAccentSoft = Color(red: 1.00, green: 0.82, blue: 0.90)
-    static let petInk = Color(red: 0.227, green: 0.145, blue: 0.251)
-    static let petMuted = Color(red: 0.56, green: 0.44, blue: 0.54)
+    // Blue "home ice" theme. Text colors are chosen for WCAG AA contrast:
+    // petInk on petBG ≈ 15:1, petMuted on petBG/white ≈ 7:1, white on petAccent ≈ 6.4:1, petWarn on white ≈ 5:1.
+    static let petBG = Color(red: 0.937, green: 0.957, blue: 1.00)        // #EFF4FF
+    static let petAccent = Color(red: 0.122, green: 0.373, blue: 0.749)   // #1F5FBF
+    static let petAccentSoft = Color(red: 0.835, green: 0.886, blue: 0.976) // #D5E2F9, backgrounds only, never text
+    static let petInk = Color(red: 0.067, green: 0.110, blue: 0.220)      // #111C38
+    static let petMuted = Color(red: 0.275, green: 0.333, blue: 0.447)    // #465572
+    static let petWarn = Color(red: 0.70, green: 0.27, blue: 0.0)         // #B34500, readable orange for warnings
     static func speaker(_ id: String) -> Color {
         switch id {
         case "me": return .petAccent
@@ -159,6 +162,9 @@ struct HubView: View {
         .background(Color.petBG)
         .foregroundStyle(Color.petInk)
         .font(.system(size: 13, design: .rounded))
+        .tint(Color.petAccent)
+        // the palette is a light theme; in system dark mode, controls would otherwise draw white text on it
+        .environment(\.colorScheme, .light)
     }
 
     var tabs: some View {
@@ -280,10 +286,10 @@ struct NoteRow: View {
             }
             Spacer()
             if note.status == "processing" { ProgressView().controlSize(.small) }
-            else if note.status == "failed" { Image(systemName: "exclamationmark.circle").foregroundStyle(.orange) }
+            else if note.status == "failed" { Image(systemName: "exclamationmark.circle").foregroundStyle(Color.petWarn) }
             else if note.status == "recording" { Circle().fill(Color.petAccent).frame(width: 8, height: 8).modifier(Pulse()) }
             else if note.summary.isEmpty { Image(systemName: "pencil.and.outline").foregroundStyle(Color.petMuted).help("No notes written yet") }
-            else { Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Color.petAccentSoft) }
+            else { Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Color.petMuted) }
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(hover ? 1 : 0.75)))
@@ -342,7 +348,7 @@ struct NoteDetail: View {
 
                     if let e = note.error {
                         HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "exclamationmark.bubble").foregroundStyle(.orange)
+                            Image(systemName: "exclamationmark.bubble").foregroundStyle(Color.petWarn)
                             Text(e).font(.system(size: 12, design: .rounded))
                         }.card()
                     }
@@ -393,7 +399,7 @@ struct NoteDetail: View {
                                 HStack(alignment: .top, spacing: 10) {
                                     VStack(alignment: .trailing, spacing: 1) {
                                         Text(note.name(for: seg.speaker)).font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(Color.speaker(seg.speaker))
-                                        Text(mmss(seg.start)).font(.system(size: 9.5, design: .rounded).monospacedDigit()).foregroundStyle(Color.petMuted.opacity(0.7))
+                                        Text(mmss(seg.start)).font(.system(size: 9.5, design: .rounded).monospacedDigit()).foregroundStyle(Color.petMuted)
                                     }.frame(width: 72, alignment: .trailing)
                                     Text(seg.text).textSelection(.enabled).lineSpacing(2)
                                 }
@@ -689,6 +695,11 @@ struct MindView: View {
 // MARK: - Me
 struct MeView: View {
     var onEngineChange: (String) -> Void
+    /// "downloading Quick 42%" -> 42
+    static func percent(in status: String) -> Double {
+        guard let r = status.range(of: #"(\d+)%"#, options: .regularExpression) else { return 0 }
+        return Double(status[r].dropLast()) ?? 0
+    }
     @AppStorage("engine") private var engine = "apple"
     @AppStorage("summaryEngine") private var summaryEngine = "claude"
     @AppStorage("launchAtLogin") private var launchAtLogin = false
@@ -744,12 +755,12 @@ struct MeView: View {
                     permRow("Accessibility (fn key + typing)", ok: Permissions.accessibilityTrusted, url: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
                     permRow("System audio (hear your call)", ok: nil, url: "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")
                     if !Permissions.accessibilityTrusted {
-                        Text("Shows as granted but I still can't type? Remove VoicePet from the Accessibility list with the minus button, then add it again.")
-                            .font(.system(size: 11.5, design: .rounded)).foregroundStyle(.orange)
+                        Text("Shows as granted but I still can't type? Remove HockeyTime from the Accessibility list with the minus button, then add it again.")
+                            .font(.system(size: 11.5, design: .rounded)).foregroundStyle(Color.petWarn)
                     }
                     if Permissions.fnKeyDoesSomethingElse {
                         Text("Your fn key also opens emoji/dictation. Set it to Do Nothing in System Settings › Keyboard.")
-                            .font(.system(size: 11.5, design: .rounded)).foregroundStyle(.orange)
+                            .font(.system(size: 11.5, design: .rounded)).foregroundStyle(Color.petWarn)
                     }
                 }.card()
 
@@ -770,8 +781,21 @@ struct MeView: View {
                                 }.buttonStyle(Pill(filled: brainModel == m.id))
                             }
                         }
-                        Text(brainStatus == "ready" ? "Brain is ready. Hold right ⌥ Option and talk to it." : "Brain: \(brainStatus)")
-                            .font(.system(size: 11, design: .rounded)).foregroundStyle(brainStatus == "ready" ? Color.petMuted : .orange)
+                        if brainStatus.hasPrefix("downloading") || brainStatus.hasPrefix("checking") {
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Brain: \(brainStatus)").font(.system(size: 11, design: .rounded)).foregroundStyle(Color.petInk)
+                                    ProgressView(value: Self.percent(in: brainStatus), total: 100).tint(Color.petAccent)
+                                }
+                                Button("Cancel") { (NSApp.delegate as? AppDelegate)?.brain.cancelDownload() }
+                                    .buttonStyle(Pill(filled: false))
+                                    .help("Stops the download. Pick the model again later and it resumes where it stopped.")
+                            }
+                        } else {
+                            Text(brainStatus == "ready" ? "Brain is ready. Hold right ⌥ Option and talk to it." : "Brain: \(brainStatus)")
+                                .font(.system(size: 11, design: .rounded))
+                                .foregroundStyle(brainStatus == "ready" || brainStatus.hasPrefix("cancelled") ? Color.petMuted : Color.petWarn)
+                        }
                     }
                 }.card()
                 .onAppear { (NSApp.delegate as? AppDelegate)?.brain.onStatus = { s in brainStatus = s } }

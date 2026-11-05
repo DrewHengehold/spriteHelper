@@ -23,6 +23,10 @@ final class Brain {
 
     private var llm: LLM?
     private var preparing = false
+    private var download: ModelDownload?
+    private var restartAfterPrepare = false
+    /// True while a model file is being fetched, so the UI can offer Cancel.
+    var isDownloading: Bool { download != nil }
     private(set) var status = "off"          // off | downloading Quick 42% | checking Quick | loading Quick | ready | failed: …
     var onStatus: ((String) -> Void)?
     var petName = "henrik"
@@ -53,16 +57,40 @@ final class Brain {
 
     private func set(_ s: String) { status = s; onStatus?(s); NSLog("BRAIN %@", s) }
 
-    func prepare() async {
-        guard enabled, !preparing else { return }
+    /// Loads the selected model, downloading it first if needed.
+    /// `userInitiated` is false at launch: a download the user cancelled is not restarted on its own.
+    func prepare(userInitiated: Bool = false) async {
+        guard enabled else { return }
         let model = Self.selected
+        if preparing {
+            // the user picked another model mid-download: stop this one, then start theirs
+            if userInitiated, let d = download { restartAfterPrepare = true; d.cancel() }
+            return
+        }
         if llm != nil, loadedID == model.id { return }
-        preparing = true
-        defer { preparing = false }
-        llm = nil; loadedID = nil
+        let pausedKey = "brainDownloadCancelled"
+        if userInitiated { UserDefaults.standard.removeObject(forKey: pausedKey) }
         let path = Self.path(for: model)
+        if !FileManager.default.fileExists(atPath: path.path), UserDefaults.standard.string(forKey: pausedKey) == model.id {
+            set("cancelled: download of \(model.label) paused. Pick a model to resume")
+            return
+        }
+        preparing = true
+        defer {
+            preparing = false
+            if restartAfterPrepare { restartAfterPrepare = false; Task { await self.prepare(userInitiated: true) } }
+        }
+        llm = nil; loadedID = nil
         if !FileManager.default.fileExists(atPath: path.path) {
-            do { try await download(model, to: path) } catch { set("failed: \(error.localizedDescription)"); return }
+            do { try await download(model, to: path) } catch {
+                if ModelDownload.isCancelled(error) {
+                    if !restartAfterPrepare { UserDefaults.standard.set(model.id, forKey: pausedKey) }
+                    set("cancelled: download of \(model.label) paused. Pick a model to resume")
+                } else {
+                    set("failed: \(error.localizedDescription)")
+                }
+                return
+            }
         }
         set("loading \(model.label)")
         let loaded: LLM? = await Task.detached(priority: .userInitiated) {
@@ -77,9 +105,20 @@ final class Brain {
 
     private func download(_ model: Model, to path: URL) async throws {
         set("downloading \(model.label) 0%")
-        try await ModelDownload(label: model.label, to: path) { [weak self] s in
-            Task { @MainActor in self?.set(s) }
-        }.run(from: model.url)
+        let d = ModelDownload(label: model.label, to: path) { [weak self] s in
+            Task { @MainActor in
+                guard let self, self.download != nil else { return }   // ignore late progress after a cancel
+                self.set(s)
+            }
+        }
+        download = d
+        defer { download = nil }
+        try await d.run(from: model.url)
+    }
+
+    /// Stops the model download in progress. The partial file is kept, so picking the model again resumes it.
+    func cancelDownload() {
+        download?.cancel()
     }
 
     func forget() { llm?.history.removeAll() }

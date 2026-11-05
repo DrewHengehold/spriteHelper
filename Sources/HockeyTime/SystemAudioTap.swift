@@ -27,7 +27,7 @@ final class SystemAudioTap {
 
         let outputUID = try Self.defaultOutputDeviceUID()
         let dict: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "VoicePet Tap",
+            kAudioAggregateDeviceNameKey: "HockeyTime Tap",
             kAudioAggregateDeviceUIDKey: "voicepet-tap-\(UUID().uuidString)",
             kAudioAggregateDeviceMainSubDeviceKey: outputUID,
             kAudioAggregateDeviceIsPrivateKey: true,

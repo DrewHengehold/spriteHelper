@@ -46,7 +46,7 @@ struct Note: Codable, Identifiable, Equatable {
     }
 }
 
-/// Everything lives as JSON in ~/Library/Application Support/VoicePet.
+/// Everything lives as JSON in ~/Library/Application Support/HockeyTime.
 @MainActor
 final class Store: ObservableObject {
     static let shared = Store()
@@ -57,7 +57,13 @@ final class Store: ObservableObject {
     let dir: URL
 
     private init() {
-        dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("VoicePet", isDirectory: true)
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        dir = support.appendingPathComponent("HockeyTime", isDirectory: true)
+        // the app used to be called VoicePet: carry notes, words, memory and downloaded models over
+        let old = support.appendingPathComponent("VoicePet", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path), FileManager.default.fileExists(atPath: old.path) {
+            try? FileManager.default.moveItem(at: old, to: dir)
+        }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         dictations = load("dictations.json") ?? []
         vocabulary = load("vocabulary.json") ?? Vocabulary()

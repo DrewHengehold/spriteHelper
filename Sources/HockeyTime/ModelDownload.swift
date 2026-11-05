@@ -7,6 +7,9 @@ import Foundation
 /// attempt asks for the rest with an HTTP Range request instead of starting over.
 final class ModelDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private enum Failure: Error { case startOver(String) }
+    /// Thrown from `run` after `cancel()`. The .part file is kept, so the next attempt resumes.
+    static let cancelledError = NSError(domain: "HockeyTime", code: 4, userInfo: [NSLocalizedDescriptionKey: "Download cancelled"])
+    static func isCancelled(_ error: Error) -> Bool { (error as NSError).domain == "HockeyTime" && (error as NSError).code == 4 }
 
     private let label: String
     private let dest: URL
@@ -20,6 +23,9 @@ final class ModelDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable
     private var lastPct = -1
     private var sha256: String?         // Hugging Face's X-Linked-Etag is the file's SHA-256
     private var failure: Error?
+    private let lock = NSLock()
+    private var task: URLSessionDataTask?
+    private var cancelled = false
 
     init(label: String, to dest: URL, onStatus: @escaping @Sendable (String) -> Void) {
         self.label = label
@@ -28,7 +34,16 @@ final class ModelDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable
         self.onStatus = onStatus
     }
 
+    /// Stops the transfer. Safe from any thread; `run` then throws `cancelledError`.
+    func cancel() {
+        lock.lock(); cancelled = true; let t = task; lock.unlock()
+        t?.cancel()
+    }
+
+    private var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+
     func run(from url: URL) async throws {
+        if isCancelled { throw Self.cancelledError }
         try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
         do {
             try await attempt(url)
@@ -59,7 +74,9 @@ final class ModelDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable
         defer { session.finishTasksAndInvalidate() }
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             continuation = c
-            session.dataTask(with: req).resume()
+            let t = session.dataTask(with: req)
+            lock.lock(); task = t; let stop = cancelled; lock.unlock()
+            if stop { t.cancel() } else { t.resume() }
         }
     }
 
@@ -118,7 +135,9 @@ final class ModelDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         try? handle?.close()
         handle = nil
+        lock.lock(); self.task = nil; lock.unlock()
         do {
+            if isCancelled { throw Self.cancelledError }
             if let failure { throw failure }
             if let error { throw error }
             let size = offset + received
@@ -165,6 +184,6 @@ final class ModelDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable
     }
 
     private static func error(_ message: String) -> NSError {
-        NSError(domain: "VoicePet", code: 3, userInfo: [NSLocalizedDescriptionKey: message])
+        NSError(domain: "HockeyTime", code: 3, userInfo: [NSLocalizedDescriptionKey: message])
     }
 }

@@ -62,7 +62,7 @@ enum Summarizer {
 
     static func summarize(transcript: String) async throws -> (title: String, summary: String) {
         guard let engine = active else {
-            throw NSError(domain: "VoicePet", code: 10, userInfo: [NSLocalizedDescriptionKey: "No note writer yet. Add a Claude key in the Me tab, or turn on Apple Intelligence."])
+            throw NSError(domain: "HockeyTime", code: 10, userInfo: [NSLocalizedDescriptionKey: "No note writer yet. Add a Claude key in the Me tab, or turn on Apple Intelligence."])
         }
         let text = engine == .claude ? try await claude(transcript) : try await apple(transcript)
         return split(text)
@@ -102,14 +102,14 @@ enum Summarizer {
         if let http = resp as? HTTPURLResponse, http.statusCode != 200 {
             let msg = ((json["error"] as? [String: Any])?["message"] as? String) ?? "HTTP \(http.statusCode)"
             let hint = http.statusCode == 401 ? " Check the key in the Me tab." : ""
-            throw NSError(domain: "VoicePet", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: "Claude: \(msg)\(hint)"])
+            throw NSError(domain: "HockeyTime", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: "Claude: \(msg)\(hint)"])
         }
         if json["stop_reason"] as? String == "refusal" {
-            throw NSError(domain: "VoicePet", code: 11, userInfo: [NSLocalizedDescriptionKey: "Claude declined to summarize this one."])
+            throw NSError(domain: "HockeyTime", code: 11, userInfo: [NSLocalizedDescriptionKey: "Claude declined to summarize this one."])
         }
         let blocks = json["content"] as? [[String: Any]] ?? []
         let out = blocks.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined()
-        guard !out.isEmpty else { throw NSError(domain: "VoicePet", code: 12, userInfo: [NSLocalizedDescriptionKey: "Claude returned nothing."]) }
+        guard !out.isEmpty else { throw NSError(domain: "HockeyTime", code: 12, userInfo: [NSLocalizedDescriptionKey: "Claude returned nothing."]) }
         return out
     }
 

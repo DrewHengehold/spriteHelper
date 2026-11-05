@@ -173,7 +173,7 @@ enum NoteProcessor {
         return r.segments.map { SpeakerSpan(id: $0.speakerId, start: Double($0.startTimeSeconds), end: Double($0.endTimeSeconds)) }
 #else
         throw NSError(
-            domain: "VoicePet",
+            domain: "HockeyTime",
             code: 21,
             userInfo: [NSLocalizedDescriptionKey: "Speaker diarization requires an Apple Silicon Mac"]
         )

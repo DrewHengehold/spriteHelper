@@ -76,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--hub") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.hub.show() } }
     }
 
-    func applyBrainPref() { Task { await brain.prepare() } }
+    func applyBrainPref() { Task { await brain.prepare(userInitiated: true) } }
 
     func applyWanderPref() { wander.enabled = UserDefaults.standard.bool(forKey: "wander") }
 

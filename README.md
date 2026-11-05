@@ -1,8 +1,8 @@
 <p align="center"><img src="docs/henrik.png" width="400" alt="Henrik, the goalie"></p>
 
-<h1 align="center">Henrik</h1>
+<h1 align="center">HockeyTime</h1>
 
-<p align="center">A calm, well-groomed goalie who glides around your desktop and types what you say.<br>A fork of <a href="https://github.com/Pyanov/frog">Pyanov/frog</a>, an open-source, on-device alternative to Wispr Flow and Granola for the Mac, with swappable avatars.</p>
+<p align="center">Henrik, a calm, well-groomed pixel-art goalie who glides around your desktop and types what you say.<br>A fork of <a href="https://github.com/Pyanov/frog">Pyanov/frog</a>, an open-source, on-device alternative to Wispr Flow and Granola for the Mac, with swappable avatars.</p>
 
 Hold **fn** and talk. Henrik types what you say into whatever is in front of you: a Claude Code or Codex prompt, a terminal, an email. Let go and the text is there. Start him before a call and he takes the notes: who said what, and a summary to read afterwards. Hold **right ⌥ Option** and talk to him. He answers out loud, remembers what you tell him, and keeps you company while he skates laps around your screen.
 
@@ -19,6 +19,7 @@ Everything runs on your Mac. Speech recognition, speaker labels, and Henrik's br
 - **A goalie to talk to.** Hold right Option and say something. He talks back, remembers facts ("my sister's name is Anna"), and sets reminders ("remind me at four to call the dentist"), which he says aloud when due. The Mind tab shows what he knows.
 - **Words.** Teach him names and jargon. He suggests words he keeps hearing, and correcting a dictation teaches him.
 - **He glides.** Henrik skates around the screen with momentum: he pushes off, carves wide turns, coasts to a stop, bounces off the screen edges like a puck off the boards, leans into turns and kicks up ice spray. Switch that off in Me, or in the menu bar, if it bugs you.
+- **He's alive.** Chunky pixel-art rendering with spring-driven motion: he breathes, blinks, hops when he turns, and his mouth moves when he talks. Every so often he winds up and fires a puck straight at your screen. The glass cracks. He's not sorry.
 - A small hockey stick in the menu bar hides or shows him, opens Notes and settings, and quits.
 
 | State | What Henrik does |
@@ -26,6 +27,8 @@ Everything runs on your Mac. Speech recognition, speaker labels, and Henrik's br
 | Listening | Rings pulse with your voice, he stretches with the loudness |
 | Thinking | Juggles a puck, thought dots overhead |
 | Done | Jumps, confetti, **SAVE!** and a goal horn |
+| Talking | Mouth moves with every syllable |
+| Idle, now and then | Slap shot at the screen, cracked glass |
 | Notes | Recording light over his shoulder |
 | Confused / sleeping | A wobbling "?", or drifting z's |
 
@@ -61,12 +64,12 @@ All on device, downloaded on first use.
 
 ## Install a prebuilt app (Apple Silicon or Intel)
 
-1. Open the repo's **Actions** tab → latest **Build macOS app** run → download `VoicePet-arm64` (Apple Silicon: M1 and later) or `VoicePet-amd64` (Intel), unzip it twice, drag `VoicePet.app` to Applications. Not sure which? Apple menu → About This Mac: "Chip: Apple M…" means arm64.
-2. First launch: macOS will say it's from an unidentified developer. Open System Settings › Privacy & Security, scroll down, click **Open Anyway**. Once.
+1. Open the repo's **Actions** tab → latest **Build macOS app** run → download `HockeyTime-arm64` (Apple Silicon: M1 and later) or `HockeyTime-amd64` (Intel), unzip it twice, drag `HockeyTime.app` to Applications. Not sure which? Apple menu → About This Mac: "Chip: Apple M…" means arm64.
+2. First launch: macOS says Apple "could not verify" it, because the build isn't notarized. Open System Settings › Privacy & Security, scroll down, click **Open Anyway**. Once. (Or in Terminal: `xattr -dr com.apple.quarantine /Applications/HockeyTime.app`.)
 3. Grant Microphone, Speech Recognition, and Accessibility when asked (Accessibility is for the fn key and for typing into other apps).
 4. System Settings › Keyboard › "Press 🌐 key to" → **Do Nothing**, or fn also opens the emoji picker.
 
-Needs macOS 26. On first launch it downloads its brain in the background. Dictation works immediately; Henrik starts talking once the download is done.
+Needs macOS 26. On first launch it downloads its brain in the background (1 to 17 GB depending on your Mac). Dictation works immediately; Henrik starts talking once the download is done. Don't want the download right now? Right-click Henrik → Me → **Cancel**. Picking a model again later resumes where it stopped.
 
 ## Build from source
 
@@ -76,11 +79,11 @@ git clone https://github.com/DrewHengehold/spriteHelper.git && cd spriteHelper
 ./build.sh                  # native architecture
 ARCH=amd64 ./build.sh       # Intel x86_64, also cross-compiles from Apple Silicon
 mkdir -p ~/Applications
-ditto build/VoicePet.app ~/Applications/VoicePet.app
-open ~/Applications/VoicePet.app
+ditto build/HockeyTime.app ~/Applications/HockeyTime.app
+open ~/Applications/HockeyTime.app
 ```
 
-`lipo -archs build/VoicePet.app/Contents/MacOS/VoicePet` shows what you built. Building requires macOS 26, Xcode Command Line Tools, and Node 20.19+ or 22.12+; full Xcode is not required. The first build compiles llama.cpp and can take several minutes.
+`lipo -archs build/HockeyTime.app/Contents/MacOS/HockeyTime` shows what you built. Building requires macOS 26, Xcode Command Line Tools, and Node 20.19+ or 22.12+; full Xcode is not required. The first build compiles llama.cpp and can take several minutes.
 
 Apple Silicon provides every feature. An Intel (amd64) build uses Apple Speech and omits Parakeet transcription and FluidAudio speaker diarization. CI (`.github/workflows/build.yml`) runs the web tests and builds both the arm64 and amd64 apps on every push to `main` or `henrik`.
 
@@ -97,7 +100,7 @@ npm run capture       # renders every state to web/shots/*.png
 
 ## Under the hood
 
-Swift/AppKit app built with SwiftPM. Apple SpeechAnalyzer or Parakeet v3 for speech, FluidAudio for diarization, llama.cpp via LLM.swift for the brain (Gemma 4 GGUFs from Unsloth), Apple Foundation Models for summaries, AVSpeechSynthesizer for the voice, a WKWebView for the pet (a 2D canvas sprite for Henrik, three.js for the frog). `Wander.swift` moves the window: `glide` for Henrik, `walk` for the frog, picked by the avatar's `pet.motion`. Notes, vocabulary, memory, and models live in `~/Library/Application Support/VoicePet/`.
+Swift/AppKit app built with SwiftPM. Apple SpeechAnalyzer or Parakeet v3 for speech, FluidAudio for diarization, llama.cpp via LLM.swift for the brain (Gemma 4 GGUFs from Unsloth), Apple Foundation Models for summaries, AVSpeechSynthesizer for the voice, a WKWebView for the pet (a 2D canvas sprite for Henrik, three.js for the frog). `Wander.swift` moves the window: `glide` for Henrik, `walk` for the frog, picked by the avatar's `pet.motion`. Notes, vocabulary, memory, and models live in `~/Library/Application Support/HockeyTime/` (moved there automatically from the old `VoicePet` folder).
 
 ## Credits and license
 

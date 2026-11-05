@@ -92,7 +92,7 @@ final class AppleTranscriber: Transcriber {
         if status == .notDetermined {
             status = await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) } }
         }
-        guard status == .authorized else { throw NSError(domain: "VoicePet", code: 1, userInfo: [NSLocalizedDescriptionKey: "Speech recognition permission not granted"]) }
+        guard status == .authorized else { throw NSError(domain: "HockeyTime", code: 1, userInfo: [NSLocalizedDescriptionKey: "Speech recognition permission not granted"]) }
     }
 }
 
@@ -135,7 +135,7 @@ final class ParakeetTranscriber: Transcriber {
 
     private func result(_ samples: [Float]) async throws -> ASRResult {
         try await prepare()
-        guard let m = manager else { throw NSError(domain: "VoicePet", code: 2, userInfo: [NSLocalizedDescriptionKey: "Parakeet not loaded"]) }
+        guard let m = manager else { throw NSError(domain: "HockeyTime", code: 2, userInfo: [NSLocalizedDescriptionKey: "Parakeet not loaded"]) }
         var state = TdtDecoderState.make(decoderLayers: await m.decoderLayerCount)
         return try await m.transcribe(samples, decoderState: &state)
     }
@@ -152,7 +152,7 @@ final class ParakeetTranscriber: Transcriber {
 
     private var unsupportedError: Error {
         NSError(
-            domain: "VoicePet",
+            domain: "HockeyTime",
             code: 20,
             userInfo: [NSLocalizedDescriptionKey: "Parakeet transcription requires an Apple Silicon Mac"]
         )

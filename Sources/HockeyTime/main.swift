@@ -3,13 +3,13 @@ import AVFoundation
 import Speech
 
 // Debug entry points (no UI):
-//   VoicePet --transcribe file.wav [apple|parakeet]
-//   VoicePet --diarize file.wav
-//   VoicePet --summarize transcript.txt
-//   VoicePet --tap-test 5            capture 5s of system audio, transcribe it
-//   VoicePet --chat "hey" ["..."]     load the brain once, print its reply to each message (no memory writes)
-//   VoicePet --react "text" ["..."]   the pet's remark after typing each dictation (no memory writes)
-//   VoicePet --speak "text" out.caf    render a line with the pet's own voice settings to an audio file
+//   HockeyTime --transcribe file.wav [apple|parakeet]
+//   HockeyTime --diarize file.wav
+//   HockeyTime --summarize transcript.txt
+//   HockeyTime --tap-test 5            capture 5s of system audio, transcribe it
+//   HockeyTime --chat "hey" ["..."]     load the brain once, print its reply to each message (no memory writes)
+//   HockeyTime --react "text" ["..."]   the pet's remark after typing each dictation (no memory writes)
+//   HockeyTime --speak "text" out.caf    render a line with the pet's own voice settings to an audio file
 /// Collects AVSpeechSynthesizer.write buffers into one audio file.
 final class SpeechFileWriter: @unchecked Sendable {
     private let url: URL

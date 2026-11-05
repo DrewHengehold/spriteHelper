@@ -6,14 +6,20 @@ import { createSpritePet } from '../../sprite-pet.js'
 import image from './henrik.svg'
 
 createSpritePet({
-  name: 'henrik',     // also picks the brain's persona (Sources/VoicePet/Brain.swift)
+  name: 'henrik',     // also picks the brain's persona (Sources/HockeyTime/Brain.swift)
   image,
   facing: 1,          // the art faces right
   height: 0.74,       // fraction of the 320px canvas
   ground: 0.92,
   motion: 'glide',    // the Swift app skates the window around with momentum
   trail: true,        // ice spray + speed streaks
-  accent: '#2a5bd7',
+  pixel: 2,           // chunky pixel-art rendering; 0 for smooth vector
+  accent: '#1f5fbf',
+  // where things are on henrik.svg (fractions of the 240x260 image)
+  mouth: { x: 0.504, y: 0.232, w: 0.075 },
+  eyes: { pts: [{ x: 0.4625, y: 0.123 }, { x: 0.5625, y: 0.123 }], r: 0.022, lid: '#f1c7a3' },
+  stick: { x: 0.86, y: 0.95 },  // blade: he shoots pucks at the screen from here
+  shotEvery: [35, 90],          // seconds between shots while idle
   doneText: 'SAVE!',
   doneSound: 'horn',
 })

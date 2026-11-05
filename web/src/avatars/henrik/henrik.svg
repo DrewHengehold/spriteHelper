@@ -75,10 +75,10 @@
     <!-- nose -->
     <path d="M124 34 Q130 44 124 46" fill="none" stroke="#c98e6c" stroke-width="3"/>
     <!-- eyes looking right, steady goalie stare, with brows -->
-    <ellipse cx="111" cy="32" rx="4" ry="5" fill="#17203a" stroke="none"/>
-    <ellipse cx="135" cy="32" rx="4" ry="5" fill="#17203a" stroke="none"/>
-    <circle cx="112.5" cy="30" r="1.5" fill="#ffffff" stroke="none"/>
-    <circle cx="136.5" cy="30" r="1.5" fill="#ffffff" stroke="none"/>
+    <ellipse cx="111" cy="32" rx="5" ry="6.5" fill="#17203a" stroke="none"/>
+    <ellipse cx="135" cy="32" rx="5" ry="6.5" fill="#17203a" stroke="none"/>
+    <circle cx="113" cy="29.5" r="2" fill="#ffffff" stroke="none"/>
+    <circle cx="137" cy="29.5" r="2" fill="#ffffff" stroke="none"/>
     <path d="M104 24 L117 23 M129 23 L142 24" fill="none" stroke="#4a3a30" stroke-width="3.5"/>
     <!-- hair: dark brown, swept back, falling to the collar, a little grey at the temples -->
     <path d="M84 40 Q76 0 118 -2 Q160 -2 158 30 Q150 14 128 12 Q106 12 98 20 Q92 26 92 42 Q88 62 98 70 Q80 66 84 40 Z"
