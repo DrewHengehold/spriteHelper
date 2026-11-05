@@ -31,6 +31,15 @@ final class StatusBar: NSObject, NSMenuDelegate {
         let visible = app.panel.isVisible
         menu.addItem(make(visible ? "Hide \(isFrog ? "the frog" : displayName)" : "Show \(isFrog ? "the frog" : displayName)", #selector(toggleVisible), key: "h"))
         menu.addItem(make("Notes & settings…", #selector(openHub), key: ","))
+        if app.hasTricks {
+            let tricks = NSMenu()
+            tricks.addItem(make("Score a goal", #selector(goal), key: ""))
+            tricks.addItem(make("Skating twirl", #selector(twirl), key: ""))
+            tricks.addItem(make("Shoot at the screen", #selector(screenShot), key: ""))
+            let item = NSMenuItem(title: "Tricks", action: nil, keyEquivalent: "")
+            item.submenu = tricks
+            menu.addItem(item)
+        }
         menu.addItem(.separator())
         let wander = make("Wanders around", #selector(toggleWander), key: "")
         wander.state = UserDefaults.standard.bool(forKey: "wander") ? .on : .off
@@ -64,6 +73,9 @@ final class StatusBar: NSObject, NSMenuDelegate {
         UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "sounds"), forKey: "sounds"); app?.applySoundsPref()
     }
     @objc private func quit() { NSApp.terminate(nil) }
+    @objc private func goal() { app?.playGoalShow(force: true) }
+    @objc private func twirl() { app?.playTwirl() }
+    @objc private func screenShot() { app?.playScreenShot() }
 
     /// A hockey stick with a puck, drawn as a template image.
     static func hockeyGlyph() -> NSImage {

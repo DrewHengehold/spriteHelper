@@ -25,11 +25,12 @@ Pick one of these:
    Optional extras, all positions as fractions of your image (0..1 from the top-left):
    - `mouth: { x, y, w }` opens and closes while the pet talks.
    - `eyes: { pts: [{ x, y }, …], r, lid }` blinks (and closes when sleeping); `lid` is the skin colour.
-   - `stick: { x, y }` is where pucks are shot from; `shotEvery: [min, max]` seconds between shots.
+   - `stick: { x, y }` is where pucks are shot from; `shotEvery: [min, max]` seconds between pucks at the screen.
+   - `twirlEvery: [min, max]` seconds between skating twirls. The app's goal show (net across the screen) uses `pet.windup(dir)` and `pet.goal()`, which every sprite avatar gets for free.
    - `pixel: 2` renders chunky pixel art (bigger number = chunkier); `0` keeps smooth vector edges.
 4. Set `avatar: 'goalie'` in `web/avatar.config.js`, then `./build.sh`.
 
-Preview while you tweak: `?bg=1&glide=1` fakes the window moving so you can see the skating, `?talk=1` moves the mouth, `?shoot=1` fires a puck, `?pixel=0` turns pixel art off,
+Preview while you tweak: `?bg=1&glide=1` fakes the window moving so you can see the skating, `?talk=1` moves the mouth, `?shoot=1` fires a puck, `?twirl=1` spins, `?goal=1` plays the pet's half of the goal show, `?pixel=0` turns pixel art off,
 `?demo=1` cycles every state, `?state=done` forces one.
 
 ## The contract

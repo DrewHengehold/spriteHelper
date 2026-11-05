@@ -19,7 +19,8 @@ createSpritePet({
   mouth: { x: 0.504, y: 0.232, w: 0.075 },
   eyes: { pts: [{ x: 0.4625, y: 0.123 }, { x: 0.5625, y: 0.123 }], r: 0.022, lid: '#f1c7a3' },
   stick: { x: 0.86, y: 0.95 },  // blade: he shoots pucks at the screen from here
-  shotEvery: [35, 90],          // seconds between shots while idle
+  shotEvery: [360, 720],        // pucks at the screen: every 6-12 minutes while idle
+  twirlEvery: [120, 240],       // skating twirl: every 2-4 minutes while idle
   doneText: 'SAVE!',
   doneSound: 'horn',
 })

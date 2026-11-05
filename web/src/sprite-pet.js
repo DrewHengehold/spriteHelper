@@ -21,12 +21,17 @@
 //   mouth       { x, y, w }        mouth centre and width, as fractions of the image; opens while talking
 //   eyes        { pts: [{x, y}], r, lid }  eye centres/radius as image fractions, eyelid colour; blinks
 //   stick       { x, y }           stick blade as an image fraction; enables shooting pucks at the screen
-//   shotEvery   [min, max] seconds between puck shots while idle (default [35, 90])
+//   shotEvery   [min, max] seconds between pucks fired at the screen while idle (default 6 to 12 minutes)
+//   twirlEvery  [min, max] seconds between skating twirls while idle (default 2 to 4 minutes)
+//
+// Tricks can also be triggered: pet.shoot() (puck at the screen), pet.twirl(), and for the goal show the
+// app runs across the whole screen, pet.windup(dir) (face dir = 1 right / -1 left and slap a puck out of
+// the window) followed by pet.goal() (horns, GOAL!, confetti).
 
 export function createSpritePet(opts) {
   const o = {
     name: 'pet', facing: 1, height: 0.66, ground: 0.88, motion: 'glide', trail: true, pixel: 0,
-    accent: '#1f5fbf', doneText: 'NICE!', doneSound: 'ding', shotEvery: [35, 90], ...opts,
+    accent: '#1f5fbf', doneText: 'NICE!', doneSound: 'ding', shotEvery: [360, 720], twirlEvery: [120, 240], ...opts,
   }
 
   // ---------- canvases ----------
@@ -100,6 +105,15 @@ export function createSpritePet(opts) {
         case 'blip': this.tone({ from: 880, dur: 0.06, vol: 0.08 }); break
         case 'slap': this.noise({ dur: 0.08, vol: 0.35, hp: 400 }); this.tone({ from: 180, to: 90, dur: 0.08, vol: 0.15, type: 'square' }); break
         case 'crack': this.noise({ dur: 0.35, vol: 0.3, hp: 1500 }); this.tone({ from: 2400, to: 900, dur: 0.12, vol: 0.05, type: 'triangle' }); break
+        case 'goalhorn':   // arena goal horn: three blasts and a long one
+          for (const [at, len] of [[0, 0.45], [0.6, 0.45], [1.2, 0.45], [1.8, 1.6]]) {
+            this.tone({ from: 146, to: 144, dur: len, vol: 0.14, type: 'sawtooth', delay: at })
+            this.tone({ from: 220, to: 218, dur: len, vol: 0.1, type: 'sawtooth', delay: at })
+            this.tone({ from: 293, to: 291, dur: len, vol: 0.07, type: 'square', delay: at })
+          }
+          this.noise({ dur: 2.5, vol: 0.06, hp: 600, delay: 0.1 })   // the crowd
+          break
+        case 'twirl': this.noise({ dur: 0.6, vol: 0.07, hp: 2500 }); this.tone({ from: 500, to: 1400, dur: 0.9, vol: 0.05, type: 'triangle' }); break
       }
     },
   }
@@ -132,7 +146,11 @@ export function createSpritePet(opts) {
   let blinkIn = 2 + Math.random() * 3, blink = 0
   let syllableIn = 0
   let nextShot = rand(o.shotEvery[0] * 0.4, o.shotEvery[1] * 0.6)   // the first one comes sooner
-  let shot = null                                                    // { phase, t, from, to, crack }
+  let shot = null                                                    // { phase, t, to }: puck at the screen
+  let twirl = null                                                   // { t, from }: skating spin
+  let pass = null                                                    // { t, dir, released }: goal-show slap shot
+  let nextTwirl = rand(60, 120)
+  let banner = o.doneText
   let shake = 0
   const sparks = [], spray = [], cracks = []
 
@@ -147,9 +165,18 @@ export function createSpritePet(opts) {
     }
   }
 
+  const tricking = () => !!(shot || twirl || pass)
+
   function shoot() {
-    if (shot || !o.stick) return false
+    if (tricking() || !o.stick) return false
     shot = { phase: 'windup', t: 0 }
+    return true
+  }
+
+  function startTwirl() {
+    if (tricking()) return false
+    twirl = { t: 0, from: Math.sign(sp.face.x) || 1 }
+    sfx.play('twirl')
     return true
   }
 
@@ -162,11 +189,11 @@ export function createSpritePet(opts) {
       state = s; stateT = 0
       if (s === 'listening') { impulse(-3); sfx.play('pop') }
       if (s === 'thinking') sfx.play('blip')
-      if (s === 'done') { impulse(9); burst(); doneT = 0; sfx.play(o.doneSound) }
+      if (s === 'done') { impulse(9); burst(); banner = o.doneText; doneT = 0; sfx.play(o.doneSound) }
       if (s === 'confused') { impulse(3); sfx.play('huh') }
       if (s === 'noting') impulse(-2)
       if (s === 'idle') { impulse(2); if (prev === 'loading' || prev === 'sleeping') sfx.play('pop') }
-      if (s !== 'idle' && shot && shot.phase === 'windup') shot = null   // never shoot over real work
+      if (s !== 'idle') { if (shot && shot.phase === 'windup') shot = null; twirl = null }   // real work wins
     },
     setLevel(v) { level = Math.max(0, Math.min(1, +v || 0)) },
     lookAt(x, y) { sp.lookX.t = Math.max(-1, Math.min(1, +x || 0)); sp.lookY.t = Math.max(-1, Math.min(1, +y || 0)) },
@@ -185,6 +212,17 @@ export function createSpritePet(opts) {
     setCaption(text) { let c = document.getElementById('cap'); if (!c) { c = document.createElement('div'); c.id = 'cap'; document.body.appendChild(c) } c.textContent = text || ''; c.style.opacity = text ? 1 : 0 },
     boop() { impulse(6); sfx.play('boop') },
     shoot,
+    twirl: startTwirl,
+    windup(dir) {   // goal show: turn toward the net and slap a puck out of the window
+      shot = null; twirl = null
+      pass = { t: 0, dir: Math.sign(+dir) || 1, released: false }
+      return true
+    },
+    goal() {        // the puck went in
+      impulse(10); burst(); banner = 'GOAL!'; doneT = 0
+      sfx.play('goalhorn')
+    },
+    tricking,
     state: () => state,
   }
 
@@ -231,7 +269,8 @@ export function createSpritePet(opts) {
     const moving = speed > 0.06
 
     // ----- facing: travel direction, else the cursor -----
-    if (Math.abs(sp.vx.t) > 0.15) sp.face.t = Math.sign(sp.vx.t)
+    if (pass) sp.face.t = pass.dir
+    else if (Math.abs(sp.vx.t) > 0.15) sp.face.t = Math.sign(sp.vx.t)
     else if (!moving && Math.abs(sp.lookX.t) > 0.35 && state !== 'sleeping' && !shot) sp.face.t = Math.sign(sp.lookX.t)
     const face = step(sp.face, dt)
     const turning = 1 - Math.min(1, Math.abs(face))            // 1 mid-turn
@@ -250,6 +289,11 @@ export function createSpritePet(opts) {
     if (nextShot <= 0) {
       nextShot = rand(o.shotEvery[0], o.shotEvery[1])
       if (state === 'idle' && !talking) shoot()
+    }
+    nextTwirl -= dt
+    if (nextTwirl <= 0) {
+      nextTwirl = rand(o.twirlEvery[0], o.twirlEvery[1])
+      if (state === 'idle' && !talking) startTwirl()
     }
     let windup = 0
     if (shot) {
@@ -273,6 +317,23 @@ export function createSpritePet(opts) {
       } else if (shot.phase === 'hit' && shot.t >= 1.6) {
         shot = null
       }
+    }
+    if (pass) {
+      pass.t += dt
+      windup = Math.min(1, pass.t / 0.45)
+      if (!pass.released && pass.t >= 0.45) { pass.released = true; sfx.play('slap'); impulse(-4) }
+      if (pass.t >= 1.0) pass = null
+    }
+    let spin = 0
+    if (twirl) {
+      twirl.t += dt
+      const k = Math.min(1, twirl.t / 1.5)
+      spin = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2      // ease in-out
+      if (Math.random() < 0.8) {                                             // spray flung off in a circle
+        const a = spin * Math.PI * 4 + Math.random()
+        spray.push({ x: W / 2 + Math.cos(a) * 30, y: H * o.ground - 3, vx: Math.cos(a) * rand(80, 150), vy: -rand(40, 110), life: 1 })
+      }
+      if (twirl.t >= 1.5) { twirl = null; spin = 0; impulse(4); sfx.play('swish') }
     }
     shake = Math.max(0, shake - dt * 3)
 
@@ -299,7 +360,9 @@ export function createSpritePet(opts) {
     } else if (state === 'idle') {
       rot += sp.lookY.x * -0.04 + Math.cos(drift) * 0.025
     }
-    if (shot && shot.phase === 'windup') rot -= windup * 0.22 * Math.sign(face || 1)          // lean back, stick up
+    if ((shot && shot.phase === 'windup') || (pass && !pass.released)) rot -= windup * 0.22 * Math.sign(face || 1)   // lean back, stick up
+    if (pass && pass.released && pass.t < 0.6) rot += 0.14 * Math.sign(face || 1)          // follow-through
+    if (twirl) { bob -= Math.sin(Math.min(1, twirl.t / 1.5) * Math.PI) * 16; sy += 0.04; sx -= 0.03; rot += Math.sin(spin * Math.PI * 4) * 0.05 }
     if (shot && shot.phase === 'flight' && shot.t < 0.15) rot += 0.12 * Math.sign(face || 1)  // follow-through
     bob -= turning * 8                                       // a little hop as he turns around
     sp.rot.t = rot; sp.bob.t = bob; sp.sx.t = sx; sp.sy.t = sy
@@ -350,7 +413,8 @@ export function createSpritePet(opts) {
     }
 
     // the character: drawn into its own buffer (with eyelids and mouth), edges hardened, then composited
-    const flip = Math.abs(face) < 0.06 ? 0.06 * (Math.sign(face) || 1) : face
+    const turnFace = twirl ? twirl.from * Math.cos(spin * Math.PI * 4) : face   // two full spins
+    const flip = Math.abs(turnFace) < 0.06 ? 0.06 * (Math.sign(turnFace) || 1) : turnFace
     const toScene = (u, v) => {   // image-fraction point -> scene px, for effects attached to the sprite
       const lx = (u - 0.5) * sw * flip * o.facing * SX, ly = (v - 1) * sh * SY
       return { x: gx + lx * Math.cos(R) - ly * Math.sin(R), y: gy + B + lx * Math.sin(R) + ly * Math.cos(R) }
@@ -416,7 +480,7 @@ export function createSpritePet(opts) {
     }
     if (doneT < 1.4) {
       const pop = Math.min(1, doneT * 5)
-      label(o.doneText, W / 2, H * 0.12 - doneT * 10, 30 + 8 * Math.sin(Math.min(1, doneT * 3) * Math.PI), o.accent, Math.min(1, (1.4 - doneT) * 3) * pop)
+      label(banner, W / 2, H * 0.12 - doneT * 10, 30 + 8 * Math.sin(Math.min(1, doneT * 3) * Math.PI), o.accent, Math.min(1, (1.4 - doneT) * 3) * pop)
     }
 
     // the puck: from the blade, straight at you, then the "glass" cracks
@@ -451,6 +515,15 @@ export function createSpritePet(opts) {
       }
     }
 
+    // goal show: the puck rockets out of the window toward the net (the app takes it from there)
+    if (pass && pass.released && pass.t < 0.6 && o.stick) {
+      const b = toScene(o.stick.x, o.stick.y), k = Math.min(1, (pass.t - 0.45) / 0.12)
+      const x = b.x + pass.dir * k * W * 0.7
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3
+      ctx.beginPath(); ctx.moveTo(b.x, b.y - 4); ctx.lineTo(x, b.y - 4); ctx.stroke(); ctx.globalAlpha = 1
+      if (k < 1) puck(ctx, x, b.y - 4, 8, 0.45)
+    }
+
     // confetti
     for (let i = sparks.length - 1; i >= 0; i--) {
       const p = sparks[i]
@@ -482,6 +555,11 @@ export function createSpritePet(opts) {
   }
   if (params.get('talk')) window.pet.setTalking(true)          // ?talk=1 previews the mouth
   if (params.get('shoot')) setTimeout(shoot, 300)               // ?shoot=1 fires a puck right away
+  if (params.get('twirl')) setTimeout(startTwirl, 300)          // ?twirl=1 spins right away
+  if (params.get('goal')) {                                      // ?goal=1 previews Henrik's half of the goal show
+    setTimeout(() => window.pet.windup(1), 300)
+    setTimeout(() => window.pet.goal(), 1300)
+  }
   const forced = params.get('state')
   if (forced) { window.pet.setState(forced); if (forced === 'listening') window.pet.setLevel(0.7) }
 }

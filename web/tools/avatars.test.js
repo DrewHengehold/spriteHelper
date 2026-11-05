@@ -47,7 +47,7 @@ for (const name of avatars) {
   })
 }
 
-test('every avatar installs the window.pet contract in a browser', { timeout: 120_000 }, async t => {
+test('every avatar installs the window.pet contract in a browser', { timeout: 180_000 }, async t => {
   const { build } = await import('vite')
   const { launchBrowser } = await import('./browser.js')
   const outDir = await mkdtemp(path.join(os.tmpdir(), 'avatar-test-'))
@@ -95,13 +95,24 @@ test('every avatar installs the window.pet contract in a browser', { timeout: 12
           const fired = window.pet.shoot()
           const again = window.pet.shoot()        // one shot at a time
           await new Promise(r => setTimeout(r, 2800))
+          const twirled = window.pet.twirl()
+          const busyDuringTwirl = window.pet.tricking()
+          await new Promise(r => setTimeout(r, 1800))
+          const wound = window.pet.windup(-1)
+          await new Promise(r => setTimeout(r, 700))
+          window.pet.goal()
+          await new Promise(r => setTimeout(r, 1500))
           const c = document.getElementById('c')
-          return { fired, again, drawn: c.width > 0 && c.toDataURL().length > 2000 }
+          return { fired, again, twirled, busyDuringTwirl, wound, idleAfter: !window.pet.tricking(), drawn: c.width > 0 && c.toDataURL().length > 2000 }
         })
         assert.deepEqual(errors, [], 'henrik extras: no page errors')
         assert.equal(extras.fired, true, 'pet.shoot() starts a shot')
         assert.equal(extras.again, false, 'a second shot waits for the first')
         assert.ok(extras.drawn, 'the canvas has content')
+        assert.equal(extras.twirled, true, 'pet.twirl() starts a twirl')
+        assert.equal(extras.busyDuringTwirl, true, 'tricks report busy while running')
+        assert.equal(extras.wound, true, 'pet.windup() starts the goal-show slap shot')
+        assert.equal(extras.idleAfter, true, 'all tricks finish')
       }
     }
   } finally {

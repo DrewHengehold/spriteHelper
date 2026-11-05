@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var meeting = MeetingRecorder(mic: recorder)
     lazy var hub = HubController(app: self)
     lazy var wander = Wander(panel: panel)
+    lazy var goalShow = GoalShow(panel: panel, js: { [weak self] s in self?.panel.js(s) })
+    private var goalTimer: Timer?
     let voice = PetVoice()
     let brain = Brain()
     lazy var statusBar = StatusBar(app: self)
@@ -72,9 +74,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         wander.onVelocity = { [weak self] x, y in self?.panel.js("pet.setVelocity && pet.setVelocity(\(x),\(y))") }
         panel.onGrab = { [weak self] in self?.wander.pause(seconds: 30); self?.voice.grabbed() }
         voice.onTalking = { [weak self] on in self?.panel.js("pet.setTalking && pet.setTalking(\(on))") }
+        scheduleGoalShow()
         if CommandLine.arguments.contains("--demo") { runDemo() }
         if CommandLine.arguments.contains("--hub") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.hub.show() } }
     }
+
+    /// About every five minutes: a net appears across the screen and Henrik scores.
+    private func scheduleGoalShow() {
+        goalTimer?.invalidate()
+        let t = Timer(timeInterval: .random(in: 270...330), repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.playGoalShow(); self?.scheduleGoalShow() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        goalTimer = t
+    }
+
+    /// `force` is for the menu: play even if the pet is in the middle of something.
+    func playGoalShow(force: Bool = false) {
+        guard voice.petName.lowercased() != "frog", panel.isVisible, !goalShow.isRunning else { return }
+        if !force, wander.isBusy() || talking || listening { return }
+        wander.pause(seconds: 6)
+        goalShow.play()
+    }
+
+    var hasTricks: Bool { voice.petName.lowercased() != "frog" }
+    func playTwirl() { panel.js("pet.twirl && pet.twirl()") }
+    func playScreenShot() { panel.js("pet.shoot && pet.shoot()") }
 
     func applyBrainPref() { Task { await brain.prepare(userInitiated: true) } }
 
