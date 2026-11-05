@@ -8,6 +8,11 @@ final class PetVoice: NSObject, AVSpeechSynthesizerDelegate {
     private let synth = AVSpeechSynthesizer()
     private var lastQuip = Date.distantPast
     var onTalking: ((Bool) -> Void)?
+    /// Set from the avatar's `pet.name`; the frog's "Ribbit" becomes the avatar's own catchphrase.
+    var petName = "frog"
+    private var catchphrase: String {
+        switch petName.lowercased() { case "frog": return "Ribbit"; case "henrik": return "Alright"; default: return "Hey" }
+    }
 
     var enabled: Bool { UserDefaults.standard.bool(forKey: "voiceOn") }
     var readBack: Bool { UserDefaults.standard.bool(forKey: "voiceReadBack") }
@@ -25,6 +30,11 @@ final class PetVoice: NSObject, AVSpeechSynthesizerDelegate {
 
     func say(_ text: String, force: Bool = false) {
         guard enabled || force, !text.isEmpty else { return }
+        var text = text
+        if petName.lowercased() != "frog" {
+            text = text.replacingOccurrences(of: "Ribbit", with: catchphrase)
+                .replacingOccurrences(of: "Frog online", with: "\(petName.capitalized) online")
+        }
         let u = AVSpeechUtterance(string: text)
         u.voice = Self.voice(named: voiceName)
         u.rate = 0.48

@@ -22,6 +22,11 @@ async function main() {
     await page.screenshot({ path: path.resolve(toolDir, `../shots/${state}.png`) })
     console.log('shot', state)
   }
+  // a mid-glide frame (fakes the Swift window motion) for avatars that skate
+  await page.goto(`${file}?bg=1&glide=1`)
+  await page.waitForTimeout(1500)
+  await page.screenshot({ path: path.resolve(toolDir, '../shots/glide.png') })
+  console.log('shot', 'glide')
   await browser.close()
 }
 

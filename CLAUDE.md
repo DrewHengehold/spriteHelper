@@ -1,18 +1,19 @@
 # Working on this repo with Claude Code
 
-This is Frog, a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/VoicePet/`, the pet itself is three.js in `web/src/main.js`.
+This is Frog, a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/VoicePet/`. The pet is a swappable avatar in `web/src/avatars/<name>/`; `web/avatar.config.js` picks which one ships (currently `henrik`, a 2D sprite hockey goalie; `frog` is the original three.js frog). `web/src/main.js` only loads the chosen avatar. 2D image avatars use the shared engine in `web/src/sprite-pet.js`. See `web/src/avatars/README.md`.
 
 ## If someone asks for a different pet
 
-Edit only `web/src/main.js`. Keep this contract, everything else is free:
+Add a folder under `web/src/avatars/` (copy `henrik/` for an image sprite, `frog/` for three.js) and point `web/avatar.config.js` at it. Keep this contract, everything else is free:
 
 - `window.pet.setState(name)` for `idle`, `listening`, `thinking`, `done`, `noting`, `confused`, `loading`, `sleeping`.
 - `window.pet.setLevel(v)` with v in 0..1, the mic loudness while listening. The pet should visibly react to it.
 - `window.pet.lookAt(x, y)` with x, y in -1..1, where the cursor is relative to the pet.
 - Transparent canvas: `renderer.setClearColor(0, 0)` and `alpha: true`. The canvas is 260×300 CSS px (`W`, `H`), set in `index.html` and `PetPanel.size` in Swift. Change both if you change one.
-- `?bg=1` paints a dark background for previews, `?demo=1` cycles states, `?state=name` forces one.
+- `?bg=1` paints a dark background for previews, `?demo=1` cycles states, `?state=name` forces one, `?avatar=name` picks an avatar, `?glide=1` fakes window motion.
+- Optional: `pet.name` (also selects the brain persona in `Brain.swift` and the voice catchphrase), `pet.motion` (`'walk'` or `'glide'`, read by `Wander.swift`), `pet.setVelocity(x, y)`, `pet.setTalking(on)`.
 
-After editing, run `cd web && npm run capture` and look at `web/shots/*.png` before claiming it looks right. Then `./build.sh` and `open build/VoicePet.app`.
+After editing, run `cd web && npm run capture` and look at `web/shots/*.png` before claiming it looks right. Then `./build.sh` (or `ARCH=amd64 ./build.sh` for Intel) and `open build/VoicePet.app`.
 
 Design intent: cute, round, soft toon shading with a dark outline, squash-and-stretch on state changes, always something moving (breathing, blinking, gaze). No UI chrome around the pet.
 
@@ -28,5 +29,5 @@ Design intent: cute, round, soft toon shading with a dark outline, squash-and-st
 
 - Never commit `build/`, `.build/`, `web/dist*`, `web/shots/`, `web/node_modules/`.
 - Don't rename the bundle id `ai.learnvector.voicepet`; macOS permissions are keyed on it.
-- The frog is `web/src/main.js`. Keep it a frog unless the user asks for another creature.
+- Don't delete existing avatars; add new ones beside them and switch `web/avatar.config.js`.
 - Feature branches and pull requests, not pushes to main.

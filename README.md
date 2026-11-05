@@ -68,9 +68,24 @@ npm run capture
 
 `npm run capture` uses an installed Chrome, Edge, Brave, or Chromium browser when available. If none is installed, install Playwright's Chromium once with `npm run playwright:install`.
 
+## Avatars: Henrik (default) or the frog
+
+This fork ships **Henrik**, a cartoon hockey goalie sprite who glides around your screen like he's on ice: he pushes off, carves wide turns, coasts to a stop, bounces off the screen edges, leans into turns and kicks up ice spray. The original frog is still there.
+
+Switch with one line in `web/avatar.config.js` (`avatar: 'frog'`), or at build time with `AVATAR=frog ./build.sh`. To use your own picture, copy `web/src/avatars/henrik/`, drop in a transparent PNG/SVG and point `avatar.config.js` at the new folder. See [`web/src/avatars/README.md`](web/src/avatars/README.md).
+
+## Intel (amd64) build
+
+```bash
+(cd web && npm ci)
+ARCH=amd64 ./build.sh
+```
+
+Works on an Intel Mac or cross-compiles from Apple Silicon. `lipo -archs build/VoicePet.app/Contents/MacOS/VoicePet` should print `x86_64`. The Intel build uses Apple Speech and omits Parakeet and speaker diarization. CI (`.github/workflows/build-amd64.yml`) builds it on every push to `main` and uploads `VoicePet-amd64.zip` as an artifact.
+
 ## Make it your own creature
 
-The frog is one three.js file, `web/src/main.js`. Open the repo in Claude Code and ask for a different animal; `CLAUDE.md` explains the small contract the app expects (`pet.setState`, `pet.setLevel`, `pet.lookAt`, plus optional `setVelocity`, `setTalking`). Personas for the brain live in `Sources/VoicePet/Brain.swift`.
+The frog is one three.js file, `web/src/avatars/frog/index.js`. Open the repo in Claude Code and ask for a different animal; `CLAUDE.md` explains the small contract the app expects (`pet.setState`, `pet.setLevel`, `pet.lookAt`, plus optional `setVelocity`, `setTalking`). Personas for the brain live in `Sources/VoicePet/Brain.swift`.
 
 ## Under the hood
 

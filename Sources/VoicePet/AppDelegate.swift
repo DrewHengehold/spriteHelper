@@ -27,7 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onLoaded = { [weak self] in
             self?.panel.js("pet.setState('loading')")
             self?.applySoundsPref()
-            self?.panel.webView.evaluateJavaScript("pet.name || 'frog'") { v, _ in if let n = v as? String { self?.brain.petName = n } }
+            self?.panel.webView.evaluateJavaScript("pet.name || 'frog'") { v, _ in if let n = v as? String { self?.brain.petName = n; self?.voice.petName = n } }
+            // the avatar decides how it moves around the screen: 'walk' (frog) or 'glide' (skater)
+            self?.panel.webView.evaluateJavaScript("pet.motion || 'walk'") { v, _ in
+                if let m = v as? String, let style = Wander.Style(rawValue: m) { self?.wander.style = style }
+            }
         }
         Task { await brain.prepare() }
         Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in

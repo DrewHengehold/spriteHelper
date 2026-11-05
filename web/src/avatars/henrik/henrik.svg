@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 260" width="480" height="520">
+  <!-- Henrik, a cartoon goalie. Faces slightly RIGHT, skates touch the bottom edge.
+       Swap this file for any transparent image to change the avatar (see ../README.md). -->
+  <g stroke="#17203a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+
+    <!-- goalie stick: shaft from the blocker down, wide paddle, blade on the ice to the right -->
+    <path d="M176 118 L196 196" fill="none" stroke-width="11"/>
+    <path d="M176 118 L196 196" fill="none" stroke="#2b2f3a" stroke-width="5"/>
+    <path d="M190 172 L204 228 L190 232 L178 176 Z" fill="#2b2f3a"/>
+    <path d="M190 226 Q196 246 232 244 L232 254 Q186 258 180 232 Z" fill="#2b2f3a"/>
+    <path d="M183 192 L197 189" fill="none" stroke="#ffffff" stroke-width="3"/>
+
+    <!-- skates peeking under the pads -->
+    <path d="M62 244 L112 244 L112 252 L62 252 Z" fill="#20263a"/>
+    <path d="M124 244 L174 244 L174 252 L124 252 Z" fill="#20263a"/>
+    <path d="M58 256 L116 256 M120 256 L178 256" fill="none" stroke="#c9d3df" stroke-width="4"/>
+
+    <!-- red pants -->
+    <path d="M66 132 L174 132 L176 166 L64 166 Z" fill="#d62a3a"/>
+    <path d="M120 140 L120 166" fill="none" stroke-width="4"/>
+
+    <!-- leg pads: white with blue chevrons and a red stripe -->
+    <g>
+      <rect x="60" y="150" width="54" height="96" rx="14" fill="#f7f8fb"/>
+      <path d="M66 176 L87 194 L108 176 M66 198 L87 216 L108 198" fill="none" stroke="#2a5bd7" stroke-width="5"/>
+      <path d="M62 228 L112 228" fill="none" stroke="#d62a3a" stroke-width="5"/>
+      <path d="M87 154 L87 172" fill="none" stroke="#c7cfdd" stroke-width="4"/>
+      <rect x="122" y="150" width="54" height="96" rx="14" fill="#f7f8fb"/>
+      <path d="M128 176 L149 194 L170 176 M128 198 L149 216 L170 198" fill="none" stroke="#2a5bd7" stroke-width="5"/>
+      <path d="M124 228 L174 228" fill="none" stroke="#d62a3a" stroke-width="5"/>
+      <path d="M149 154 L149 172" fill="none" stroke="#c7cfdd" stroke-width="4"/>
+    </g>
+
+    <!-- jersey body (big, goalie-cut), red/white/red hem -->
+    <path d="M62 92 Q60 72 90 68 L150 68 Q180 72 178 92 L182 146 Q120 156 58 146 Z" fill="#2a5bd7"/>
+    <path d="M59 128 Q120 138 181 128 L182 146 Q120 156 58 146 Z" fill="#ffffff"/>
+    <path d="M60 136 Q120 146 181 136" fill="none" stroke="#d62a3a" stroke-width="7"/>
+    <!-- chest stripe -->
+    <path d="M64 88 Q120 96 176 88" fill="none" stroke="#ffffff" stroke-width="9"/>
+    <path d="M64 88 Q120 96 176 88" fill="none" stroke="#d62a3a" stroke-width="4"/>
+    <!-- number -->
+    <text x="120" y="122" font-family="Arial Rounded MT Bold, Arial Black, Helvetica, sans-serif" font-size="30" font-weight="900"
+          text-anchor="middle" fill="#ffffff" stroke="#d62a3a" stroke-width="3" paint-order="stroke">30</text>
+
+    <!-- collar with laces -->
+    <path d="M98 66 Q120 80 142 66 L138 60 Q120 70 102 60 Z" fill="#d62a3a"/>
+    <path d="M120 72 L116 84 M120 72 L124 84" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+
+    <!-- left arm (viewer's left) with catch glove -->
+    <path d="M66 74 Q38 86 40 118 L58 120 Q56 98 72 92 Z" fill="#2a5bd7"/>
+    <path d="M42 104 L60 102 M41 111 L59 110" fill="none" stroke="#ffffff" stroke-width="4"/>
+    <path d="M42 106 L60 104" fill="none" stroke="#d62a3a" stroke-width="2"/>
+    <path d="M26 120 Q22 146 40 156 Q60 164 70 148 L72 128 Q66 114 50 116 Q34 114 26 120 Z" fill="#f7f8fb"/>
+    <path d="M34 128 Q46 140 62 132" fill="none" stroke="#2a5bd7" stroke-width="4"/>
+    <path d="M44 120 L44 132 M54 120 L54 134" fill="none" stroke="#c7cfdd" stroke-width="3"/>
+
+    <!-- right arm with blocker on the stick -->
+    <path d="M174 74 Q200 86 196 114 L178 116 Q182 98 168 92 Z" fill="#2a5bd7"/>
+    <path d="M180 102 L197 104 M179 109 L196 111" fill="none" stroke="#ffffff" stroke-width="4"/>
+    <path d="M180 105 L197 107" fill="none" stroke="#d62a3a" stroke-width="2"/>
+    <rect x="164" y="108" width="40" height="44" rx="7" fill="#f7f8fb"/>
+    <path d="M172 118 L196 118 M172 140 L196 140" fill="none" stroke="#2a5bd7" stroke-width="4"/>
+
+    <!-- head -->
+    <path d="M86 36 Q86 72 120 74 Q154 72 154 36 Q154 4 120 4 Q86 4 86 36 Z" fill="#f1c7a3"/>
+    <!-- ear -->
+    <ellipse cx="88" cy="38" rx="6" ry="9" fill="#e7b48e"/>
+    <!-- beard: short, salt-and-pepper, along the jaw -->
+    <path d="M90 40 Q90 72 120 74 Q150 72 152 40 Q148 54 140 56 Q130 50 120 52 Q110 50 100 56 Q94 54 90 40 Z"
+          fill="#6e5a4c" stroke-width="3"/>
+    <path d="M102 60 L104 62 M112 64 L113 66 M132 62 L134 64 M142 56 L143 58 M96 52 L97 54" fill="none" stroke="#a89a8e" stroke-width="2"/>
+    <!-- mustache + mouth -->
+    <path d="M108 52 Q120 46 134 52 Q126 56 120 54 Q114 56 108 52 Z" fill="#5b4a3e" stroke-width="2.5"/>
+    <path d="M114 60 Q121 64 128 60" fill="none" stroke="#3a2a22" stroke-width="2.5"/>
+    <!-- nose -->
+    <path d="M124 34 Q130 44 124 46" fill="none" stroke="#c98e6c" stroke-width="3"/>
+    <!-- eyes looking right, steady goalie stare, with brows -->
+    <ellipse cx="111" cy="32" rx="4" ry="5" fill="#17203a" stroke="none"/>
+    <ellipse cx="135" cy="32" rx="4" ry="5" fill="#17203a" stroke="none"/>
+    <circle cx="112.5" cy="30" r="1.5" fill="#ffffff" stroke="none"/>
+    <circle cx="136.5" cy="30" r="1.5" fill="#ffffff" stroke="none"/>
+    <path d="M104 24 L117 23 M129 23 L142 24" fill="none" stroke="#4a3a30" stroke-width="3.5"/>
+    <!-- hair: dark brown, swept back, falling to the collar, a little grey at the temples -->
+    <path d="M84 40 Q76 0 118 -2 Q160 -2 158 30 Q150 14 128 12 Q106 12 98 20 Q92 26 92 42 Q88 62 98 70 Q80 66 84 40 Z"
+          fill="#4a3528"/>
+    <path d="M100 8 Q120 2 146 12 M96 16 Q114 8 136 12" fill="none" stroke="#6d5240" stroke-width="3"/>
+    <path d="M92 30 Q90 40 94 46" fill="none" stroke="#9c8f86" stroke-width="3"/>
+  </g>
+</svg>

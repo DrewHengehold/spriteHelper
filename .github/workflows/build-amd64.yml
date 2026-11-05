@@ -1,0 +1,66 @@
+name: Build macOS app (amd64)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      avatar:
+        description: "Avatar folder in web/src/avatars (blank = web/avatar.config.js)"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    # Apple Silicon runner with the macOS 26 SDK; build.sh cross-compiles to x86_64.
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcrun --show-sdk-version
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .build/artifacts
+            .build/checkouts
+            .build/repositories
+          key: spm-amd64-${{ hashFiles('Package.resolved') }}
+
+      - name: Web install + tests
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+
+      - name: Build VoicePet.app for amd64
+        env:
+          ARCH: amd64
+          AVATAR: ${{ github.event.inputs.avatar }}
+        run: ./build.sh
+
+      - name: Verify architecture
+        run: |
+          archs=$(lipo -archs build/VoicePet.app/Contents/MacOS/VoicePet)
+          echo "VoicePet binary architectures: $archs"
+          [[ "$archs" == *x86_64* ]]
+          codesign --verify --deep --strict build/VoicePet.app
+
+      - name: Zip
+        run: ditto -c -k --keepParent build/VoicePet.app VoicePet-amd64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoicePet-amd64
+          path: VoicePet-amd64.zip
+          retention-days: 30
