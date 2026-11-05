@@ -71,7 +71,7 @@ Needs macOS 26. On first launch it downloads its brain in the background. Dictat
 ## Build from source
 
 ```bash
-git clone https://github.com/DrewHengehold/spirteHelper.git && cd spirteHelper
+git clone https://github.com/DrewHengehold/spriteHelper.git && cd spriteHelper
 (cd web && npm ci)
 ./build.sh                  # native architecture
 ARCH=amd64 ./build.sh       # Intel x86_64, also cross-compiles from Apple Silicon
@@ -82,7 +82,7 @@ open ~/Applications/VoicePet.app
 
 `lipo -archs build/VoicePet.app/Contents/MacOS/VoicePet` shows what you built. Building requires macOS 26, Xcode Command Line Tools, and Node 20.19+ or 22.12+; full Xcode is not required. The first build compiles llama.cpp and can take several minutes.
 
-Apple Silicon provides every feature. An Intel (amd64) build uses Apple Speech and omits Parakeet transcription and FluidAudio speaker diarization. CI (`.github/workflows/build-amd64.yml`) runs the web tests and builds the amd64 app on every push to `main`.
+Apple Silicon provides every feature. An Intel (amd64) build uses Apple Speech and omits Parakeet transcription and FluidAudio speaker diarization. CI (`.github/workflows/build-amd64.yml`) runs the web tests and builds the amd64 app on every push to `main` or `henrik`.
 
 Web checks while developing an avatar:
 
