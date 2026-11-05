@@ -1,6 +1,6 @@
 # Working on this repo with Claude Code
 
-This is HockeyTime (Henrik the goalie; a fork of Frog), a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/HockeyTime/`. The pet is a swappable avatar in `web/src/avatars/<name>/`; `web/avatar.config.js` picks which one ships (currently `henrik`, a 2D sprite hockey goalie; `frog` is the original three.js frog). `web/src/main.js` only loads the chosen avatar. 2D image avatars use the shared engine in `web/src/sprite-pet.js`. See `web/src/avatars/README.md`.
+This is HockeyTime (Henrik the goalie; a fork of Frog), a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/HockeyTime/`. The pet is a swappable avatar in `web/src/avatars/<name>/`; `web/avatar.config.js` picks which one ships (currently `henrik3d`, a voxel 3D goalie in three.js; `henrik` is the same goalie as a 2D pixel sprite; `frog` is the original three.js frog). `web/src/main.js` only loads the chosen avatar. 2D image avatars use the shared engine in `web/src/sprite-pet.js`; sounds and springs shared by all sprite/voxel avatars live in `web/src/pet-kit.js`. See `web/src/avatars/README.md`.
 
 ## If someone asks for a different pet
 

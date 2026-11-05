@@ -21,8 +21,9 @@ test('the configured avatar exists', () => {
   assert.ok(avatars.includes(config.avatar), `avatar.config.js names "${config.avatar}", found: ${avatars.join(', ')}`)
 })
 
-test('henrik is the default and the frog is still available', () => {
-  assert.equal(config.avatar, 'henrik')
+test('3D henrik is the default; 2D henrik and the frog are still available', () => {
+  assert.equal(config.avatar, 'henrik3d')
+  assert.ok(avatars.includes('henrik'))
   assert.ok(avatars.includes('frog'))
 })
 
@@ -47,7 +48,7 @@ for (const name of avatars) {
   })
 }
 
-test('every avatar installs the window.pet contract in a browser', { timeout: 180_000 }, async t => {
+test('every avatar installs the window.pet contract in a browser', { timeout: 240_000 }, async t => {
   const { build } = await import('vite')
   const { launchBrowser } = await import('./browser.js')
   const outDir = await mkdtemp(path.join(os.tmpdir(), 'avatar-test-'))
@@ -83,28 +84,34 @@ test('every avatar installs the window.pet contract in a browser', { timeout: 18
       assert.ok(result.hasCore, `${name}: has setLevel/lookAt/setSounds/boop`)
       assert.ok(['walk', 'glide'].includes(result.motion), `${name}: pet.motion`)
       assert.equal(result.seen[0], 'idle')
-      if (name === 'henrik') {
+      if (name === 'henrik' || name === 'henrik3d') {
         assert.equal(result.name, 'henrik')
         assert.equal(result.motion, 'glide')
         // talking, a full puck shot (wind-up, flight, cracked glass) and pixel rendering run without errors
         const extras = await page.evaluate(async () => {
+          const sleep = ms => new Promise(r => setTimeout(r, ms))
+          // tricks run on animation time, which is slower than wall time on a slow machine: wait for them
+          const settle = async (ms = 15000) => { const t0 = performance.now(); while (window.pet.tricking() && performance.now() - t0 < ms) await sleep(50) }
           window.pet.setState('idle')
           window.pet.setTalking(true)
-          await new Promise(r => setTimeout(r, 300))
+          await sleep(300)
           window.pet.setTalking(false)
           const fired = window.pet.shoot()
           const again = window.pet.shoot()        // one shot at a time
-          await new Promise(r => setTimeout(r, 2800))
+          await settle()
           const twirled = window.pet.twirl()
           const busyDuringTwirl = window.pet.tricking()
-          await new Promise(r => setTimeout(r, 1800))
+          await settle()
           const wound = window.pet.windup(-1)
-          await new Promise(r => setTimeout(r, 700))
+          await sleep(700)
           window.pet.goal()
-          await new Promise(r => setTimeout(r, 1500))
-          const c = document.getElementById('c')
-          return { fired, again, twirled, busyDuringTwirl, wound, idleAfter: !window.pet.tricking(), drawn: c.width > 0 && c.toDataURL().length > 2000 }
+          await settle()
+          await sleep(300)
+          return { fired, again, twirled, busyDuringTwirl, wound, idleAfter: !window.pet.tricking() }
         })
+        // a real screenshot of the canvas (works for 2D and WebGL alike): a drawn character compresses far
+        // worse than an empty transparent canvas
+        extras.drawn = (await page.locator('#c').screenshot({ omitBackground: true })).length > 4000
         assert.deepEqual(errors, [], 'henrik extras: no page errors')
         assert.equal(extras.fired, true, 'pet.shoot() starts a shot')
         assert.equal(extras.again, false, 'a second shot waits for the first')

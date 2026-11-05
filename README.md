@@ -2,7 +2,7 @@
 
 <h1 align="center">HockeyTime</h1>
 
-<p align="center">Henrik, a calm, well-groomed pixel-art goalie who glides around your desktop and types what you say.<br>A fork of <a href="https://github.com/Pyanov/frog">Pyanov/frog</a>, an open-source, on-device alternative to Wispr Flow and Granola for the Mac, with swappable avatars.</p>
+<p align="center">Henrik, a calm, well-groomed voxel goalie who glides around your desktop in 3D and types what you say.<br>A fork of <a href="https://github.com/Pyanov/frog">Pyanov/frog</a>, an open-source, on-device alternative to Wispr Flow and Granola for the Mac, with swappable avatars.</p>
 
 Hold **fn** and talk. Henrik types what you say into whatever is in front of you: a Claude Code or Codex prompt, a terminal, an email. Let go and the text is there. Start him before a call and he takes the notes: who said what, and a summary to read afterwards. Hold **right ⌥ Option** and talk to him. He answers out loud, remembers what you tell him, and keeps you company while he skates laps around your screen.
 
@@ -19,7 +19,7 @@ Everything runs on your Mac. Speech recognition, speaker labels, and Henrik's br
 - **A goalie to talk to.** Hold right Option and say something. He talks back, remembers facts ("my sister's name is Anna"), and sets reminders ("remind me at four to call the dentist"), which he says aloud when due. The Mind tab shows what he knows.
 - **Words.** Teach him names and jargon. He suggests words he keeps hearing, and correcting a dictation teaches him.
 - **He glides.** Henrik skates around the screen with momentum: he pushes off, carves wide turns, coasts to a stop, bounces off the screen edges like a puck off the boards, leans into turns and kicks up ice spray. Switch that off in Me, or in the menu bar, if it bugs you.
-- **He's alive.** Chunky pixel-art rendering with spring-driven motion: he breathes, blinks, hops when he turns, and his mouth moves when he talks. He has three tricks:
+- **He's alive, in 3D.** Henrik is a voxel model (pixel art made of cubes), toon-shaded with dark outlines and drawn through a chunky pixel filter. He really turns: a 3/4 view while he skates, leaning into turns, legs pushing off, head following your cursor. Spring-driven motion throughout: he breathes, blinks, hops when he turns, and his mouth moves when he talks. He has three tricks:
   - **Goal show**, about every 5 minutes: a pixel-art net drops in on the far side of your screen, he turns, slaps a puck clean across the screen into it, the goal light flashes and the horns blare.
   - **Skating twirl**, every few minutes: two full spins with ice spray flying.
   - **Screen shot**, rarely (every 6 to 12 minutes): he fires a puck straight at you and the glass cracks. He's not sorry.
@@ -37,13 +37,13 @@ Everything runs on your Mac. Speech recognition, speaker labels, and Henrik's br
 | Notes | Recording light over his shoulder |
 | Confused / sleeping | A wobbling "?", or drifting z's |
 
-## Avatars: Henrik (default) or the frog
+## Avatars: Henrik in 3D (default), Henrik in 2D, or the frog
 
 The pet is swappable. Each avatar is a folder in `web/src/avatars/`, and `web/avatar.config.js` picks the one that ships:
 
 ```js
 export default {
-  avatar: 'henrik',   // or 'frog'
+  avatar: 'henrik3d',   // or 'henrik' (2D sprite) or 'frog'
 }
 ```
 
