@@ -13,16 +13,29 @@ on:
 jobs:
   build:
     name: Build (${{ matrix.arch }})
-    # Apple Silicon runner with the macOS 26 SDK. arm64 builds natively (all features);
-    # amd64 cross-compiles to x86_64 (Apple Speech only, no Parakeet/diarization).
-    runs-on: macos-26
+    # macos-15 images ship Xcode 26 (macOS 26 SDK), and their runner pools are far less busy than
+    # macos-26's. arm64 builds natively on Apple Silicon (all features); amd64 builds natively on an
+    # Intel runner (Apple Speech only, no Parakeet/diarization). ARCH=amd64 ./build.sh also
+    # cross-compiles on Apple Silicon if you'd rather use one runner.
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        arch: [arm64, amd64]
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: amd64
+            runner: macos-15-intel
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          xc=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$xc" ]; then echo "No Xcode 26 on this runner"; ls -d /Applications/Xcode*.app; exit 1; fi
+          echo "Using $xc"
+          sudo xcode-select -s "$xc/Contents/Developer"
 
       - uses: actions/setup-node@v4
         with:
