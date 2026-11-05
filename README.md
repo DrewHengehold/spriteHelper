@@ -59,9 +59,9 @@ All on device, downloaded on first use.
 | Meeting summaries | Apple Intelligence's on-device model. Add a Claude API key in Me and it uses Claude instead; that is the one optional thing that leaves your Mac. |
 | Voice | macOS "Grandpa" (AVSpeechSynthesizer). Pick another in Me. |
 
-## Install a prebuilt Intel (amd64) app
+## Install a prebuilt app (Apple Silicon or Intel)
 
-1. Open the repo's **Actions** tab → latest **Build macOS app (amd64)** run → download the `VoicePet-amd64` artifact, unzip it twice, drag `VoicePet.app` to Applications.
+1. Open the repo's **Actions** tab → latest **Build macOS app** run → download `VoicePet-arm64` (Apple Silicon: M1 and later) or `VoicePet-amd64` (Intel), unzip it twice, drag `VoicePet.app` to Applications. Not sure which? Apple menu → About This Mac: "Chip: Apple M…" means arm64.
 2. First launch: macOS will say it's from an unidentified developer. Open System Settings › Privacy & Security, scroll down, click **Open Anyway**. Once.
 3. Grant Microphone, Speech Recognition, and Accessibility when asked (Accessibility is for the fn key and for typing into other apps).
 4. System Settings › Keyboard › "Press 🌐 key to" → **Do Nothing**, or fn also opens the emoji picker.
@@ -82,7 +82,7 @@ open ~/Applications/VoicePet.app
 
 `lipo -archs build/VoicePet.app/Contents/MacOS/VoicePet` shows what you built. Building requires macOS 26, Xcode Command Line Tools, and Node 20.19+ or 22.12+; full Xcode is not required. The first build compiles llama.cpp and can take several minutes.
 
-Apple Silicon provides every feature. An Intel (amd64) build uses Apple Speech and omits Parakeet transcription and FluidAudio speaker diarization. CI (`.github/workflows/build-amd64.yml`) runs the web tests and builds the amd64 app on every push to `main` or `henrik`.
+Apple Silicon provides every feature. An Intel (amd64) build uses Apple Speech and omits Parakeet transcription and FluidAudio speaker diarization. CI (`.github/workflows/build.yml`) runs the web tests and builds both the arm64 and amd64 apps on every push to `main` or `henrik`.
 
 Web checks while developing an avatar:
 

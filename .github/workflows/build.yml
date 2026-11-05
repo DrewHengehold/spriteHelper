@@ -1,4 +1,4 @@
-name: Build macOS app (amd64)
+name: Build macOS app
 
 on:
   push:
@@ -12,9 +12,15 @@ on:
 
 jobs:
   build:
-    # Apple Silicon runner with the macOS 26 SDK; build.sh cross-compiles to x86_64.
+    name: Build (${{ matrix.arch }})
+    # Apple Silicon runner with the macOS 26 SDK. arm64 builds natively (all features);
+    # amd64 cross-compiles to x86_64 (Apple Speech only, no Parakeet/diarization).
     runs-on: macos-26
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, amd64]
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +41,7 @@ jobs:
             .build/artifacts
             .build/checkouts
             .build/repositories
-          key: spm-amd64-${{ hashFiles('Package.resolved') }}
+          key: spm-${{ matrix.arch }}-${{ hashFiles('Package.resolved') }}
 
       - name: Web install + tests
         working-directory: web
@@ -43,24 +49,25 @@ jobs:
           npm ci
           npm test
 
-      - name: Build VoicePet.app for amd64
+      - name: Build VoicePet.app for ${{ matrix.arch }}
         env:
-          ARCH: amd64
+          ARCH: ${{ matrix.arch }}
           AVATAR: ${{ github.event.inputs.avatar }}
         run: ./build.sh
 
       - name: Verify architecture
         run: |
+          want=${{ matrix.arch == 'amd64' && 'x86_64' || 'arm64' }}
           archs=$(lipo -archs build/VoicePet.app/Contents/MacOS/VoicePet)
-          echo "VoicePet binary architectures: $archs"
-          [[ "$archs" == *x86_64* ]]
+          echo "VoicePet binary architectures: $archs (want $want)"
+          [[ "$archs" == *"$want"* ]]
           codesign --verify --deep --strict build/VoicePet.app
 
       - name: Zip
-        run: ditto -c -k --keepParent build/VoicePet.app VoicePet-amd64.zip
+        run: ditto -c -k --keepParent build/VoicePet.app VoicePet-${{ matrix.arch }}.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VoicePet-amd64
-          path: VoicePet-amd64.zip
+          name: VoicePet-${{ matrix.arch }}
+          path: VoicePet-${{ matrix.arch }}.zip
           retention-days: 30
