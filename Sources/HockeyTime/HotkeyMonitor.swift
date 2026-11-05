@@ -48,9 +48,9 @@ final class CursorTracker {
             let p = NSEvent.mouseLocation
             let c = NSPoint(x: panel.frame.midX, y: panel.frame.midY)
             // normalised offset from the pet, clamped to [-1, 1]
-            let nx = max(-1, min(1, (p.x - c.x) / 400))
-            let ny = max(-1, min(1, (p.y - c.y) / 400))
-            self.onMove?((nx * 100).rounded() / 100, (ny * 100).rounded() / 100)
+            let nx: Double = max(-1, min(1, Double(p.x - c.x) / 400))
+            let ny: Double = max(-1, min(1, Double(p.y - c.y) / 400))
+            self.onMove?((nx * 100).rounded() / 100.0, (ny * 100).rounded() / 100.0)
         }
     }
 }
