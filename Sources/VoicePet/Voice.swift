@@ -9,7 +9,7 @@ final class PetVoice: NSObject, AVSpeechSynthesizerDelegate {
     private var lastQuip = Date.distantPast
     var onTalking: ((Bool) -> Void)?
     /// Set from the avatar's `pet.name`; the frog's "Ribbit" becomes the avatar's own catchphrase.
-    var petName = "frog"
+    var petName = "henrik"
     private var catchphrase: String {
         switch petName.lowercased() { case "frog": return "Ribbit"; case "henrik": return "Alright"; default: return "Hey" }
     }
@@ -53,17 +53,32 @@ final class PetVoice: NSObject, AVSpeechSynthesizerDelegate {
         say(options.randomElement()!)
     }
 
+    /// Lines in the avatar's own voice: the goalie for Henrik, the frog for the frog, the frog's lines otherwise.
+    private func lines(frog: [String], henrik: [String]) -> [String] {
+        petName.lowercased() == "henrik" ? henrik : frog
+    }
+
     // events
-    func woke() { quip(["Ribbit. I'm awake.", "Hello. Ribbit.", "Frog online.", "Ready when you are."]) }
+    func woke() {
+        quip(lines(frog: ["Ribbit. I'm awake.", "Hello. Ribbit.", "Frog online.", "Ready when you are."],
+                   henrik: ["Skates on. I'm ready.", "Henrik here. Let's play.", "Warm-up's done.", "Ready when you are."]))
+    }
     func dictated(_ text: String) {
         if readBack { say(text); return }
-        quip(["Ribbit. Typed.", "Got it.", "Words delivered.", "Done and done.", "Sent to the keyboard.", "Nice one.", "Ribbit."], chance: 0.5)
+        quip(lines(frog: ["Ribbit. Typed.", "Got it.", "Words delivered.", "Done and done.", "Sent to the keyboard.", "Nice one.", "Ribbit."],
+                   henrik: ["Save. Typed.", "Got it.", "Clean save.", "In the glove.", "Nothing gets past me.", "Easy one.", "Typed."]), chance: 0.5)
     }
-    func heardNothing() { quip(["Hmm? I didn't catch that.", "Say again?", "Ribbit? Nothing came through."]) }
-    func notesStarted() { say("Taking notes. Carry on.") }
+    func heardNothing() {
+        quip(lines(frog: ["Hmm? I didn't catch that.", "Say again?", "Ribbit? Nothing came through."],
+                   henrik: ["Hmm? I didn't catch that.", "Say again?", "That one went wide. Nothing came through."]))
+    }
+    func notesStarted() { say(lines(frog: ["Taking notes. Carry on."], henrik: ["Taking notes. I've got the net."])[0]) }
     func notesReady(title: String) { say("Notes are ready. \(title).") }
-    func grabbed() { quip(["Hey!", "Ribbit!", "Careful, I'm slippery.", "Put me down.", "Whee."], chance: 0.8) }
-    func test() { say("Ribbit. This is my voice. I type what you say.", force: true) }
+    func grabbed() {
+        quip(lines(frog: ["Hey!", "Ribbit!", "Careful, I'm slippery.", "Put me down.", "Whee."],
+                   henrik: ["Hey!", "Watch the hair.", "Careful, the ice is slippery.", "Put me down.", "That's interference."]), chance: 0.8)
+    }
+    func test() { say(lines(frog: ["Ribbit. This is my voice. I type what you say."], henrik: ["Henrik here. This is my voice. I type what you say."])[0], force: true) }
 
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didStart u: AVSpeechUtterance) { Task { @MainActor in self.onTalking?(true) } }
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) { Task { @MainActor in self.onTalking?(false) } }

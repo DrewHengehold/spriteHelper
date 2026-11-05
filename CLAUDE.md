@@ -1,6 +1,6 @@
 # Working on this repo with Claude Code
 
-This is Frog, a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/VoicePet/`. The pet is a swappable avatar in `web/src/avatars/<name>/`; `web/avatar.config.js` picks which one ships (currently `henrik`, a 2D sprite hockey goalie; `frog` is the original three.js frog). `web/src/main.js` only loads the chosen avatar. 2D image avatars use the shared engine in `web/src/sprite-pet.js`. See `web/src/avatars/README.md`.
+This is Henrik (a fork of Frog), a macOS menu-less desktop pet that does on-device dictation and meeting notes. Swift app in `Sources/VoicePet/`. The pet is a swappable avatar in `web/src/avatars/<name>/`; `web/avatar.config.js` picks which one ships (currently `henrik`, a 2D sprite hockey goalie; `frog` is the original three.js frog). `web/src/main.js` only loads the chosen avatar. 2D image avatars use the shared engine in `web/src/sprite-pet.js`. See `web/src/avatars/README.md`.
 
 ## If someone asks for a different pet
 
@@ -29,5 +29,5 @@ Design intent: cute, round, soft toon shading with a dark outline, squash-and-st
 
 - Never commit `build/`, `.build/`, `web/dist*`, `web/shots/`, `web/node_modules/`.
 - Don't rename the bundle id `ai.learnvector.voicepet`; macOS permissions are keyed on it.
-- Don't delete existing avatars; add new ones beside them and switch `web/avatar.config.js`.
+- Don't delete existing avatars; add new ones beside them and switch `web/avatar.config.js`. An avatar's `name` should have a persona in `Brain.swift` (`web/tools/avatars.test.js` checks this).
 - Feature branches and pull requests, not pushes to main.

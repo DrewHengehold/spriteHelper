@@ -25,7 +25,7 @@ final class Brain {
     private var preparing = false
     private(set) var status = "off"          // off | downloading Quick 42% | checking Quick | loading Quick | ready | failed: …
     var onStatus: ((String) -> Void)?
-    var petName = "frog"
+    var petName = "henrik"
     var enabled: Bool { UserDefaults.standard.bool(forKey: "brainOn") }
     var isReady: Bool { llm != nil }
     var chattiness: Double {
