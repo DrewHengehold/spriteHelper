@@ -106,6 +106,9 @@ export function createSpritePet(opts) {
 
   const tricking = () => !!(shot || twirl || pass)
 
+  // clicking him: every 2nd or 3rd click (randomly) he fires a puck right back at you
+  let clicks = 0, shootOnClick = Math.random() < 0.5 ? 2 : 3
+
   function shoot() {
     if (tricking() || !o.stick) return false
     shot = { phase: 'windup', t: 0 }
@@ -149,7 +152,11 @@ export function createSpritePet(opts) {
     setZoom() {}, zoomTo() {},
     ui(html) { let u = document.getElementById('ui'); if (!u) { u = document.createElement('div'); u.id = 'ui'; document.body.appendChild(u) } u.innerHTML = html || '' },
     setCaption(text) { let c = document.getElementById('cap'); if (!c) { c = document.createElement('div'); c.id = 'cap'; document.body.appendChild(c) } c.textContent = text || ''; c.style.opacity = text ? 1 : 0 },
-    boop() { impulse(6); sfx.play('boop') },
+    boop() {
+      impulse(6); sfx.play('boop')
+      clicks++
+      if (clicks >= shootOnClick && shoot()) { clicks = 0; shootOnClick = Math.random() < 0.5 ? 2 : 3 }
+    },
     shoot,
     twirl: startTwirl,
     windup(dir) {   // goal show: turn toward the net and slap a puck out of the window

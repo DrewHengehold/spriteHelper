@@ -20,9 +20,11 @@ Everything runs on your Mac. Speech recognition, speaker labels, and Henrik's br
 - **Words.** Teach him names and jargon. He suggests words he keeps hearing, and correcting a dictation teaches him.
 - **He glides.** Henrik skates around the screen with momentum: he pushes off, carves wide turns, coasts to a stop, bounces off the screen edges like a puck off the boards, leans into turns and kicks up ice spray. Switch that off in Me, or in the menu bar, if it bugs you.
 - **He's alive.** Chunky pixel-art rendering with spring-driven motion: he breathes, blinks, hops when he turns, and his mouth moves when he talks. He has three tricks:
-  - **Goal show**, about every 5 minutes: a pixel-art net drops in on the far side of your screen, he turns, slaps a puck clean across the screen into it, the goal light flashes and the horns blare.
+  - **Goal show**, every couple of minutes: a pixel-art net drops in on the far side of your screen, he turns, slaps a puck clean across the screen into it, the goal light flashes and the horns blare.
   - **Skating twirl**, every few minutes: two full spins with ice spray flying.
   - **Screen shot**, rarely (every 6 to 12 minutes): he fires a puck straight at you and the glass cracks. He's not sorry.
+
+  Click him and every second or third click he fires a puck right back at you.
 
   Tricks only happen when he's idle, never while you're dictating, talking to him or recording notes. The menu bar's **Tricks** menu plays any of them on demand.
 - A small hockey stick in the menu bar hides or shows him, opens Notes and settings, and quits.

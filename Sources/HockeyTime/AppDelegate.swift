@@ -79,10 +79,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--hub") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.hub.show() } }
     }
 
-    /// About every five minutes: a net appears across the screen and Henrik scores.
+    /// Every 1.5 to 2.5 minutes: a net appears across the screen and Henrik scores.
     private func scheduleGoalShow() {
         goalTimer?.invalidate()
-        let t = Timer(timeInterval: .random(in: 270...330), repeats: false) { [weak self] _ in
+        let t = Timer(timeInterval: .random(in: 90...150), repeats: false) { [weak self] _ in
             Task { @MainActor in self?.playGoalShow(); self?.scheduleGoalShow() }
         }
         RunLoop.main.add(t, forMode: .common)

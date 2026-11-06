@@ -153,6 +153,9 @@ let nextShot = rand(SHOT_EVERY[0] * 0.4, SHOT_EVERY[1] * 0.6), nextTwirl = rand(
 let shot = null, twirl = null, pass = null, shake = 0
 const cracks = []
 const tricking = () => !!(shot || twirl || pass)
+
+// clicking him: every 2nd or 3rd click (randomly) he fires a puck right back at you
+let clicks = 0, shootOnClick = Math.random() < 0.5 ? 2 : 3
 function impulse(v) { sp.bob.v += v * 0.11 * (1 - 0.5 * calm); sp.sy.v += v * 0.35; sp.sx.v -= v * 0.2 }
 function burst() {
   const at = new THREE.Vector3(0, 2.2, 0.5)
@@ -194,7 +197,11 @@ window.pet = {
   setZoom(z) { camera.position.z = z }, zoomTo(z) { camera.position.z = z },
   ui(html) { let u = document.getElementById('ui'); if (!u) { u = document.createElement('div'); u.id = 'ui'; document.body.appendChild(u) } u.innerHTML = html || '' },
   setCaption(text) { let c = document.getElementById('cap'); if (!c) { c = document.createElement('div'); c.id = 'cap'; document.body.appendChild(c) } c.textContent = text || ''; c.style.opacity = text ? 1 : 0 },
-  boop() { impulse(6); sfx.play('boop') },
+  boop() {
+    impulse(6); sfx.play('boop')
+    clicks++
+    if (clicks >= shootOnClick && shoot()) { clicks = 0; shootOnClick = Math.random() < 0.5 ? 2 : 3 }
+  },
   shoot,
   twirl: startTwirl,
   windup(dir) { shot = null; twirl = null; pass = { t: 0, dir: Math.sign(+dir) || 1, released: false }; return true },

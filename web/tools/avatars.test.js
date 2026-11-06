@@ -107,7 +107,15 @@ test('every avatar installs the window.pet contract in a browser', { timeout: 24
           window.pet.goal()
           await settle()
           await sleep(300)
-          return { fired, again, twirled, busyDuringTwirl, wound, idleAfter: !window.pet.tricking() }
+          const idleAfter = !window.pet.tricking()
+          // clicks: never on the first, always by the third
+          window.pet.boop()
+          const shotOnFirstClick = window.pet.tricking()
+          window.pet.boop()
+          if (!window.pet.tricking()) window.pet.boop()
+          const shotByThirdClick = window.pet.tricking()
+          await settle()
+          return { fired, again, twirled, busyDuringTwirl, wound, idleAfter, shotOnFirstClick, shotByThirdClick }
         })
         // a real screenshot of the canvas (works for 2D and WebGL alike): a drawn character compresses far
         // worse than an empty transparent canvas
@@ -120,6 +128,8 @@ test('every avatar installs the window.pet contract in a browser', { timeout: 24
         assert.equal(extras.busyDuringTwirl, true, 'tricks report busy while running')
         assert.equal(extras.wound, true, 'pet.windup() starts the goal-show slap shot')
         assert.equal(extras.idleAfter, true, 'all tricks finish')
+        assert.equal(extras.shotOnFirstClick, false, 'one click does not shoot')
+        assert.equal(extras.shotByThirdClick, true, 'every 2nd or 3rd click shoots a puck at you')
       }
     }
   } finally {
