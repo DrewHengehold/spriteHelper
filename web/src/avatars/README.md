@@ -4,8 +4,8 @@ Each folder here is one avatar. `web/avatar.config.js` picks which one ships.
 
 | Folder | What it is | Motion on screen |
 |---|---|---|
-| `henrik3d/` | Henrik in voxel 3D (three.js): cubes, toon shading, outlines, pixel filter. The default | `glide` |
-| `henrik/` | Henrik, a 2D sprite hockey goalie (`henrik.svg`) on the generic sprite engine | `glide`: skates around with momentum and bounces off screen edges |
+| `henrik3d/` | Henrik in 3D (three.js), five looks via `LOOK` in `index.js` or `?look=`: `voxel`, `soft`, `chibi`, `chibi-pixel`, `clay` | `glide` |
+| `henrik/` | Henrik, a 2D sprite hockey goalie (`henrik.svg`) on the generic sprite engine. The default | `glide`: skates around with momentum and bounces off screen edges |
 | `frog/` | The original three.js frog | `walk`: strolls, rests, strolls |
 
 ## Switch avatar

@@ -2,8 +2,8 @@
 // low-res pixel filter, so he looks like pixel art but truly turns, leans and spins in three dimensions.
 // Same window.pet contract and tricks as the 2D sprite (web/src/sprite-pet.js), so the app treats them alike.
 import * as THREE from 'three'
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createSfx, spring, step, rand, label } from '../../pet-kit.js'
+import { buildVoxel, buildChibi } from './models.js'
 
 const params = new URLSearchParams(location.search)
 const VSIZE = parseInt(params.get('size') || '0', 10)
@@ -13,7 +13,23 @@ if (params.get('bg')) document.body.classList.add('bg')
 if (params.get('white')) document.body.classList.add('white')
 
 // ---------- tuning ----------
-const PIXEL = params.has('pixel') ? Math.max(1, parseFloat(params.get('pixel')) || 1) : 2   // CSS px per pixel
+// The look: which model, which shading, outlines, and whether to draw through a pixel filter.
+//   voxel        cubes, toon shading, pixel filter (pixel art in 3D)
+//   soft         the same model with every cube rounded off, smooth
+//   chibi        organic: round head, soft body, rounded pads; toon shading with outlines, smooth
+//   chibi-pixel  chibi through the pixel filter
+//   clay         chibi with soft, matte lighting and no outlines, like a claymation figure
+export const LOOKS = {
+  voxel: { model: 'voxel', round: false, pixel: 2, outline: true, mat: 'toon' },
+  soft: { model: 'voxel', round: true, pixel: 1, outline: true, mat: 'toon' },
+  chibi: { model: 'chibi', pixel: 1, outline: true, mat: 'toon' },
+  'chibi-pixel': { model: 'chibi', pixel: 2, outline: true, mat: 'toon' },
+  clay: { model: 'chibi', pixel: 1, outline: false, mat: 'clay' },
+}
+const DEFAULT_LOOK = 'voxel'
+const LOOK = LOOKS[params.get('look')] || LOOKS[DEFAULT_LOOK]
+const PIXEL = params.has('pixel') ? Math.max(1, parseFloat(params.get('pixel')) || 1) : LOOK.pixel   // CSS px per pixel
+const RES = PIXEL > 1 ? 1 / PIXEL : Math.min(window.devicePixelRatio || 1, 2)                        // render scale
 const SHOT_EVERY = [360, 720]     // puck at the screen: every 6-12 minutes while idle
 const TWIRL_EVERY = [120, 240]    // skating twirl: every 2-4 minutes while idle
 const ACCENT = '#1f5fbf'
@@ -21,18 +37,18 @@ const ACCENT = '#1f5fbf'
 // ---------- renderer: low-res buffer upscaled with nearest-neighbour = pixel art ----------
 const canvas = document.getElementById('c')
 canvas.style.width = W + 'px'; canvas.style.height = H + 'px'
-canvas.style.imageRendering = 'pixelated'
+canvas.style.imageRendering = PIXEL > 1 ? 'pixelated' : 'auto'
 if (VW) { document.body.style.width = W + 'px'; document.body.style.height = H + 'px' }
-const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
-renderer.setPixelRatio(1 / PIXEL)
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: PIXEL <= 1 })
+renderer.setPixelRatio(RES)
 renderer.setSize(W, H, false)
 renderer.setClearColor(0x000000, 0)
 renderer.outputColorSpace = THREE.SRGBColorSpace
 
 // 2D overlay for text and screen effects (GOAL!, ?, z, cracked glass), also pixelated
 const fx = document.createElement('canvas')
-fx.width = Math.ceil(W / PIXEL); fx.height = Math.ceil(H / PIXEL)
-Object.assign(fx.style, { position: 'absolute', left: '0', top: '0', width: W + 'px', height: H + 'px', imageRendering: 'pixelated', pointerEvents: 'none' })
+fx.width = Math.ceil(W * RES); fx.height = Math.ceil(H * RES)
+Object.assign(fx.style, { position: 'absolute', left: '0', top: '0', width: W + 'px', height: H + 'px', imageRendering: PIXEL > 1 ? 'pixelated' : 'auto', pointerEvents: 'none' })
 canvas.after(fx)
 const fctx = fx.getContext('2d')
 
@@ -40,6 +56,7 @@ const scene = new THREE.Scene()
 const camera = new THREE.PerspectiveCamera(30, W / H, 0.1, 50)
 camera.position.set(0, 2.5, 8.6)
 camera.lookAt(0, 1.45, 0)
+if (LOOK.model === 'chibi') { camera.position.set(0, 2.6, 9.6); camera.lookAt(0, 1.6, 0) }   // room for the bigger round head
 
 scene.add(new THREE.HemisphereLight(0xeef4ff, 0x9fb4d8, 0.75))
 scene.add(new THREE.AmbientLight(0xffffff, 0.35))
@@ -57,141 +74,17 @@ function gradientMap(steps) {
 const toonMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: gradientMap([110, 180, 235, 255]) })
 const inkMat = new THREE.MeshBasicMaterial({ color: 0x0d1630, side: THREE.BackSide })
 
-// ---------- voxel builder ----------
-// A part is a list of boxes in voxel units (model space: x right, y up from the ice, z toward the viewer):
-// [x0, y0, z0, x1, y1, z1, color, outline = true]. Each part merges into one toon mesh plus one outline
-// shell (slightly larger boxes, back faces, dark), positioned at a pivot so it can rotate as a limb.
-const V = 0.08   // world units per voxel
-const C = {
-  skin: '#f1c7a3', skinDark: '#e2a985', beard: '#6e5a4c', stache: '#4e3e33', hair: '#4a3528', grey: '#a39589',
-  eye: '#17203a', white: '#ffffff', blue: '#2a5bd7', red: '#d62a3a', pad: '#f4f6fb', boot: '#20263a',
-  steel: '#c9d3df', stick: '#2b2f3a', tape: '#ffffff', mouth: '#4a1820', brow: '#3e2c22',
-}
-function part(boxes, pivot = [0, 0, 0]) {
-  const geos = [], shells = []
-  for (const [x0, y0, z0, x1, y1, z1, color, outline = true] of boxes) {
-    const w = x1 - x0, h = y1 - y0, d = z1 - z0
-    const cx = (x0 + x1) / 2 - pivot[0], cy = (y0 + y1) / 2 - pivot[1], cz = (z0 + z1) / 2 - pivot[2]
-    const g = new THREE.BoxGeometry(w * V, h * V, d * V).toNonIndexed()
-    g.translate(cx * V, cy * V, cz * V)
-    const col = new THREE.Color(color), n = g.attributes.position.count, arr = new Float32Array(n * 3)
-    for (let i = 0; i < n; i++) { arr[i * 3] = col.r; arr[i * 3 + 1] = col.g; arr[i * 3 + 2] = col.b }
-    g.setAttribute('color', new THREE.BufferAttribute(arr, 3))
-    g.deleteAttribute('uv')
-    geos.push(g)
-    if (outline) {
-      const e = 0.32
-      const s = new THREE.BoxGeometry((w + e * 2) * V, (h + e * 2) * V, (d + e * 2) * V).toNonIndexed()
-      s.translate(cx * V, cy * V, cz * V)
-      s.deleteAttribute('uv'); s.deleteAttribute('normal')
-      shells.push(s)
-    }
-  }
-  const group = new THREE.Group()
-  group.position.set(pivot[0] * V, pivot[1] * V, pivot[2] * V)
-  group.add(new THREE.Mesh(mergeGeometries(geos), toonMat))
-  if (shells.length) group.add(new THREE.Mesh(mergeGeometries(shells), inkMat))
-  return group
-}
-const mirror = boxes => boxes.map(([x0, y0, z0, x1, y1, z1, ...r]) => [-x1, y0, z0, -x0, y1, z1, ...r])
-
 // ---------- Henrik ----------
 const root = new THREE.Group()          // on the ice: turning, gliding lean, hops
 scene.add(root)
 const body = new THREE.Group()          // squash and stretch from the skates up
 root.add(body)
-
-// legs: pad + skate, pivot at the hip so they can push off while skating
-function leg(side) {
-  const pad = [
-    [-6.5, 2, -2.5, -0.5, 15, 2.5, C.pad],
-    [-6.5, 4, 2.5, -0.5, 5, 2.8, C.red, false],                                     // red stripe
-    [-6.5, 0.7, -3, -0.8, 2.2, 3.5, C.boot],                                          // skate boot
-    [-4.2, 0, -3.6, -3.2, 0.7, 4.2, C.steel],                                         // blade
-  ]
-  for (const y of [7, 11]) {                                                          // blue chevrons
-    ;[[-6, 2], [-5, 1], [-4, 0], [-3, 1], [-2, 2]].forEach(([x, dy]) => pad.push([x, y + dy, 2.5, x + 1, y + dy + 1, 2.8, C.blue, false]))
-  }
-  pad.push([-3.6, 12.5, 2.5, -3, 14.5, 2.7, '#c7cfdd', false])
-  const g = part(side < 0 ? pad : mirror(pad), [side * 3.5, 15, 0])
-  body.add(g)
-  return g
-}
-const legL = leg(-1), legR = leg(1)
-
-const torso = part([
-  [-6.5, 13, -3.5, 6.5, 16.5, 3.5, C.red],                                            // pants
-  [-7, 16, -4, 7, 27, 4, C.blue],                                                      // jersey
-  [-7.2, 16, -4.2, 7.2, 18.6, 4.2, C.white, false],                                   // hem: white
-  [-7.3, 16.9, -4.3, 7.3, 17.7, 4.3, C.red, false],                                   //       red
-  [-7.2, 24.6, -4.2, 7.2, 26.2, 4.2, C.white, false],                                 // chest stripe
-  [-7.3, 25.05, -4.3, 7.3, 25.75, 4.3, C.red, false],
-  [-3, 26.5, -3, 3, 27.6, 4.3, C.red],                                                 // collar
-  ...digits('30', -3.5, 19.1, 4.05),                                                  // number on the chest
-  ...mirror(digits('30', -3.5, 19.1, -4.35)),                                        // and on the back, reading right way round
-])
-body.add(torso)
-
-function digits(str, x0, y0, z) {
-  const font = { 3: ['111', '001', '111', '001', '111'], 0: ['111', '101', '101', '101', '111'] }
-  const out = []
-  ;[...str].forEach((ch, i) => font[ch].forEach((row, r) => [...row].forEach((on, c) => {
-    if (on === '1') out.push([x0 + i * 4 + c, y0 + (4 - r), z, x0 + i * 4 + c + 1, y0 + (5 - r), z + 0.3, C.white, false])
-  })))
-  return out
-}
-
-// arms pivot at the shoulders. Left (viewer's left): catch glove. Right: blocker and the stick.
-const sleeve = x => [
-  [x, 18, -2.5, x + 3.5, 26, 2.5, C.blue],
-  [x - 0.15, 19.5, -2.65, x + 3.65, 21, 2.65, C.white, false],
-  [x - 0.25, 19.95, -2.75, x + 3.75, 20.55, 2.75, C.red, false],
-]
-const armL = part([
-  ...sleeve(-10.2),
-  [-12.5, 12.5, -2, -6.5, 18.5, 3.5, C.pad],                                          // catch glove
-  [-11.5, 14, 3.5, -7.5, 17, 3.8, C.blue, false],
-  [-12.6, 16.5, -1, -12.3, 18.4, 2.5, '#c7cfdd', false],
-], [-7, 25.5, 0])
-const armR = part([
-  ...sleeve(6.7),
-  [7, 12, 1.5, 12.5, 18.5, 3.6, C.pad],                                                // blocker
-  [7.5, 13.5, 3.6, 12, 14.2, 3.9, C.blue, false],
-  [7.5, 16.3, 3.6, 12, 17, 3.9, C.blue, false],
-  [11, 1, 3.7, 12, 13, 4.7, C.stick],                                                  // shaft
-  [10.4, 1, 3.7, 12.6, 7, 4.7, C.stick],                                               // paddle
-  [11, 0, 3.4, 18.5, 1.4, 4.9, C.stick],                                               // blade
-  [11, 9, 3.65, 12, 9.6, 4.75, C.tape, false],
-], [7, 25.5, 0])
-body.add(armL, armR)
-const bladeLocal = new THREE.Vector3((15 - 7) * V, (0.7 - 25.5) * V, 4.1 * V)   // blade centre in armR space
-
-// head pivots at the neck: turns toward the cursor, nods, droops when asleep
-const head = part([
-  [-5, 27, -4, 5, 37, 4, C.skin],
-  [-5.2, 27, 3, 5.2, 31, 4.6, C.beard],                                                // beard, front
-  [-5.3, 27, -1, -4.4, 33, 4.3, C.beard], [4.4, 27, -1, 5.3, 33, 4.3, C.beard],        //        sides
-  [-2.6, 30.5, 4.4, 2.6, 31.4, 4.95, C.stache, false],                                // moustache
-  [-0.7, 31.4, 4, 0.7, 33.2, 5.3, C.skinDark],                                         // nose
-  [-3, 33, 4, -1.6, 35, 4.3, C.eye, false], [1.6, 33, 4, 3, 35, 4.3, C.eye, false],   // eyes
-  [-2.5, 34.2, 4.3, -2, 34.7, 4.4, C.white, false], [2.1, 34.2, 4.3, 2.6, 34.7, 4.4, C.white, false],
-  [-3.5, 35.6, 4, -1.2, 36.2, 4.4, C.brow, false], [1.2, 35.6, 4, 3.5, 36.2, 4.4, C.brow, false],
-  [-5.6, 36.5, -4.6, 5.6, 39.5, 4.4, C.hair],                                          // hair: top, swept back
-  [-5.6, 36, 3, 5.6, 37.4, 4.7, C.hair],
-  [-5.6, 28, -4.6, 5.6, 37, -3, C.hair],                                               //       back, to the collar
-  [-5.7, 31, -4.6, -4.8, 37, -0.8, C.hair], [4.8, 31, -4.6, 5.7, 37, -0.8, C.hair],   //       sides
-  [-5.8, 33, -0.6, -5.2, 35.2, 0.8, C.grey, false], [5.2, 33, -0.6, 5.8, 35.2, 0.8, C.grey, false],
-  [-5.5, 31, -0.6, -5, 34, 1.2, C.skinDark], [5, 31, -0.6, 5.5, 34, 1.2, C.skinDark],  // ears
-], [0, 27, 0])
-body.add(head)
-// mouth: opens per syllable while talking (scaled from its top edge)
-const mouth = part([[-1.6, 28.2, 4.62, 1.6, 30.2, 4.95, C.mouth, false], [-1.2, 29.6, 4.96, 1.2, 30.2, 5.0, C.white, false]], [0, 30.2, 4.8])
-mouth.position.sub(head.position)
-head.add(mouth)
-// eyelids: skin-coloured shutters that drop over the eyes
-const lids = part([[-3.2, 32.8, 4.31, -1.4, 35.3, 4.5, C.skin, false], [1.4, 32.8, 4.31, 3.2, 35.3, 4.5, C.skin, false]], [0, 35.3, 4.4])
-lids.position.sub(head.position)
-head.add(lids)
+const makeMat = (color, side = THREE.FrontSide) => LOOK.mat === 'clay'
+  ? new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness: 0, side })
+  : new THREE.MeshToonMaterial({ color, gradientMap: toonMat.gradientMap, side })
+const { legL, legR, armL, armR, head, mouth, lids, bladeLocal } = LOOK.model === 'chibi'
+  ? buildChibi(body, { makeMat, inkMat, outline: LOOK.outline })
+  : buildVoxel(body, { round: LOOK.round, outline: LOOK.outline, vertexMat: toonMat, inkMat })
 
 // ice: soft shadow and a few spray cubes
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 24), new THREE.MeshBasicMaterial({ color: 0x0b1a33, transparent: true, opacity: 0.28, depthWrite: false }))
@@ -470,7 +363,7 @@ function frame(now) {
   camera.position.x = shake * rand(-0.06, 0.06)
   renderer.render(scene, camera)
 
-  fctx.setTransform(1 / PIXEL, 0, 0, 1 / PIXEL, 0, 0)
+  fctx.setTransform(RES, 0, 0, RES, 0, 0)
   fctx.clearRect(0, 0, W, H)
   headTop.set(0, 3.25, 0); root.localToWorld(headTop)
   const hp = toScreen(headTop), feet = toScreen(new THREE.Vector3(root.position.x, 1.3, 0))

@@ -21,9 +21,9 @@ test('the configured avatar exists', () => {
   assert.ok(avatars.includes(config.avatar), `avatar.config.js names "${config.avatar}", found: ${avatars.join(', ')}`)
 })
 
-test('3D henrik is the default; 2D henrik and the frog are still available', () => {
-  assert.equal(config.avatar, 'henrik3d')
-  assert.ok(avatars.includes('henrik'))
+test('2D henrik is the default; 3D henrik and the frog are still available', () => {
+  assert.equal(config.avatar, 'henrik')
+  assert.ok(avatars.includes('henrik3d'))
   assert.ok(avatars.includes('frog'))
 })
 
