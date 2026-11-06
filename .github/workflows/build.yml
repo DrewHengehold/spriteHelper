@@ -13,10 +13,9 @@ on:
 jobs:
   build:
     name: Build (${{ matrix.arch }})
-    # macos-15 images ship Xcode 26 (macOS 26 SDK), and their runner pools are far less busy than
-    # macos-26's. arm64 builds natively on Apple Silicon (all features); amd64 builds natively on an
-    # Intel runner (Apple Speech only, no Parakeet/diarization). ARCH=amd64 ./build.sh also
-    # cross-compiles on Apple Silicon if you'd rather use one runner.
+    # Both build on Intel macos-15 runners (Xcode 26, macOS 26 SDK), which reliably start; Apple Silicon
+    # runners often can't be acquired. amd64 builds natively (Apple Speech only, no Parakeet/diarization);
+    # arm64 cross-compiles via ARCH=arm64 and keeps every feature.
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
@@ -24,7 +23,7 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-15
+            runner: macos-15-intel   # cross-compiles to arm64; GitHub's Apple Silicon runners are often unavailable
           - arch: amd64
             runner: macos-15-intel
     steps:
