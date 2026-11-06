@@ -1,0 +1,48 @@
+{
+  "name": "hockeytime-windows",
+  "productName": "HockeyTime",
+  "version": "0.1.0",
+  "description": "Henrik the goalie, a desktop pet that glides around your Windows screen",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "web": "node scripts/copy-web.js",
+    "start": "npm run web && electron .",
+    "dist": "npm run web && electron-builder --win portable --x64",
+    "check": "node --check main.js && node --check preload.js && node --check glide.js && node --test test/glide.test.js",
+    "smoke": "npm run web && node scripts/smoke.js"
+  },
+  "devDependencies": {
+    "electron": "44.10.2",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "ai.learnvector.hockeytime",
+    "productName": "HockeyTime",
+    "files": [
+      "main.js",
+      "preload.js",
+      "glide.js",
+      "goal.html",
+      "icon.png",
+      "web/**"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png"
+    },
+    "portable": {
+      "artifactName": "HockeyTime-${version}-x64.exe"
+    }
+  }
+}

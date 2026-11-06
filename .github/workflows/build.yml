@@ -1,4 +1,4 @@
-name: Build macOS app
+name: Build HockeyTime (macOS + Windows)
 
 on:
   push:
@@ -83,3 +83,61 @@ jobs:
           name: HockeyTime-${{ matrix.arch }}
           path: HockeyTime-${{ matrix.arch }}.zip
           retention-days: 30
+
+  windows:
+    name: Build (windows x64)
+    # HockeyTime for Windows: Henrik as a desktop pet (Electron). Same Henrik page, glide, tricks and goal
+    # show; dictation and notes are Mac-only for now.
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            windows/package-lock.json
+
+      - name: Build the Henrik page
+        working-directory: web
+        env:
+          AVATAR: ${{ github.event.inputs.avatar }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install, check
+        working-directory: windows
+        run: |
+          npm ci
+          npm run check
+
+      - name: Smoke test (launch, goal show, screenshots)
+        working-directory: windows
+        run: npm run smoke
+
+      - name: Package HockeyTime.exe
+        working-directory: windows
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"   # not code-signed
+        run: npm run dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HockeyTime-windows-x64
+          path: windows/dist/HockeyTime-*-x64.exe
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-smoke-screenshots
+          path: windows/smoke/
+          retention-days: 7
+          if-no-files-found: ignore

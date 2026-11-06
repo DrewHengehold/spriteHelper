@@ -71,6 +71,21 @@ All on device, downloaded on first use.
 | Meeting summaries | Apple Intelligence's on-device model. Add a Claude API key in Me and it uses Claude instead; that is the one optional thing that leaves your Mac. |
 | Voice | macOS "Grandpa" (AVSpeechSynthesizer). Pick another in Me. |
 
+## Windows
+
+HockeyTime is a Mac app, but Henrik himself runs on Windows too, as a desktop pet: he glides around your screen, follows your cursor, fires a puck at you every 2nd or 3rd click, and does the goal show (net across the screen, horns), the skating twirl and the screen shot. Dictation, meeting notes and the talking brain are Mac-only for now.
+
+1. Open the repo's **Actions** tab → latest **Build HockeyTime** run → download `HockeyTime-windows-x64` and unzip it.
+2. Run `HockeyTime-0.1.0-x64.exe`. It's a single portable file, nothing to install. It isn't code-signed, so Windows SmartScreen may say it "protected your PC": click **More info** → **Run anyway**.
+3. Henrik appears near the bottom-right of your screen. Drag him anywhere; right-click him (or click the tray icon) for **Tricks**, **Wanders around**, **Sounds**, **Start with Windows** and **Quit**.
+
+Building it yourself: the Windows app lives in `windows/` (Electron) and wraps the same Henrik page as the Mac app.
+
+```bash
+(cd web && npm ci && npm run build)
+cd windows && npm ci && npm run dist     # dist/HockeyTime-0.1.0-x64.exe
+```
+
 ## Install a prebuilt app (Apple Silicon or Intel)
 
 1. Open the repo's **Actions** tab → latest **Build macOS app** run → download `HockeyTime-arm64` (Apple Silicon: M1 and later) or `HockeyTime-amd64` (Intel), unzip it twice, drag `HockeyTime.app` to Applications. Not sure which? Apple menu → About This Mac: "Chip: Apple M…" means arm64.
